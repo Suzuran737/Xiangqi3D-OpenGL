@@ -21,7 +21,7 @@ glm::mat4 OrbitCamera::view() const {
 }
 
 glm::mat4 OrbitCamera::projection(float aspect) const {
-    return glm::perspective(glm::radians(45.0f), aspect, 0.1f, 200.0f);
+    return glm::perspective(glm::radians(40.0f), aspect, 0.1f, 200.0f);
 }
 
 Ray OrbitCamera::screenRay(double mouseX, double mouseY, int viewportW, int viewportH) const {

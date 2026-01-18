@@ -21,6 +21,7 @@ set(GLFW_TARGET "")
 set(GLAD_TARGET "")
 set(GLM_TARGET "glm::glm")
 set(ASSIMP_TARGET "assimp")
+set(FREETYPE_TARGET "freetype")
 
 # ---- Local GLAD (your copied files) ----
 function(xiangqi3d_setup_local_glad out_target)
@@ -62,6 +63,7 @@ if (XIANGQI3D_USE_SYSTEM_DEPS)
   find_package(glfw3 CONFIG REQUIRED)
   find_package(glm CONFIG REQUIRED)
   find_package(assimp CONFIG REQUIRED)
+  find_package(Freetype REQUIRED)
 
   # GLFW target name varies across distros.
   if (TARGET glfw)
@@ -76,6 +78,12 @@ if (XIANGQI3D_USE_SYSTEM_DEPS)
 
   if (TARGET assimp::assimp)
     set(ASSIMP_TARGET assimp::assimp)
+  endif()
+
+  if (TARGET freetype::freetype)
+    set(FREETYPE_TARGET freetype::freetype)
+  elseif (TARGET Freetype::Freetype)
+    set(FREETYPE_TARGET Freetype::Freetype)
   endif()
 
   if (XIANGQI3D_USE_LOCAL_GLAD)
@@ -104,6 +112,9 @@ else()
   if (NOT EXISTS "${CMAKE_SOURCE_DIR}/third_party/assimp/CMakeLists.txt")
     message(FATAL_ERROR "Local deps enabled, but third_party/assimp not found.")
   endif()
+  if (NOT EXISTS "${CMAKE_SOURCE_DIR}/third_party/freetype/CMakeLists.txt")
+    message(FATAL_ERROR "Local deps enabled, but third_party/freetype not found.")
+  endif()
 
   # ---- GLFW ----
   set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
@@ -123,11 +134,23 @@ else()
   set(ASSIMP_WARNINGS_AS_ERRORS OFF CACHE BOOL "" FORCE)
   add_subdirectory(${CMAKE_SOURCE_DIR}/third_party/assimp)
 
+  # ---- FreeType ----
+  set(FT_DISABLE_BROTLI ON CACHE BOOL "" FORCE)
+  set(FT_DISABLE_HARFBUZZ ON CACHE BOOL "" FORCE)
+  set(FT_DISABLE_PNG ON CACHE BOOL "" FORCE)
+  set(FT_DISABLE_BZIP2 ON CACHE BOOL "" FORCE)
+  add_subdirectory(${CMAKE_SOURCE_DIR}/third_party/freetype)
+
   set(GLFW_TARGET glfw)
   set(GLM_TARGET glm::glm)
   set(ASSIMP_TARGET assimp)
   if (TARGET assimp::assimp)
     set(ASSIMP_TARGET assimp::assimp)
+  endif()
+
+  set(FREETYPE_TARGET freetype)
+  if (TARGET freetype::freetype)
+    set(FREETYPE_TARGET freetype::freetype)
   endif()
 
   if (XIANGQI3D_USE_LOCAL_GLAD)
@@ -156,7 +179,7 @@ target_compile_definitions(Xiangqi3D PRIVATE GLFW_INCLUDE_NONE)
 
 # Warnings
 if (MSVC)
-  target_compile_options(Xiangqi3D PRIVATE /W4 /permissive-)
+  target_compile_options(Xiangqi3D PRIVATE /W4 /permissive- /utf-8)
 else()
   target_compile_options(Xiangqi3D PRIVATE -Wall -Wextra -Wpedantic)
 endif()
@@ -168,6 +191,7 @@ target_link_libraries(Xiangqi3D PRIVATE
   ${GLAD_TARGET}
   ${GLM_TARGET}
   ${ASSIMP_TARGET}
+  ${FREETYPE_TARGET}
 )
 
 # Copy assets next to the executable after build

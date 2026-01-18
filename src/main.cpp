@@ -20,6 +20,11 @@ struct InputState {
     double lastY = 0.0;
 };
 
+enum class AppMode {
+    Menu,
+    Playing,
+};
+
 struct App {
     GLFWwindow* window = nullptr;
     int w = 1280;
@@ -28,19 +33,48 @@ struct App {
     OrbitCamera cam;
     Renderer renderer;
     XiangqiGame game;
+    AppMode mode = AppMode::Menu;
 
     InputState input;
 };
 
-static void updateWindowTitle(GLFWwindow* window, const XiangqiGame& game) {
+static void updateWindowTitle(GLFWwindow* window, const XiangqiGame& game, AppMode mode) {
     static std::string last;
-    std::string title = std::string("Xiangqi3D (OpenGL) - ") + game.windowTitleCN();
+    std::string title;
+    if (mode == AppMode::Menu) {
+        title = "Xiangqi3D (OpenGL) - Menu";
+    } else {
+        title = std::string("Xiangqi3D (OpenGL) - ") + game.windowTitleCN();
+    }
     if (title != last) {
         glfwSetWindowTitle(window, title.c_str());
         last = std::move(title);
     }
 }
 
+static UiRect makeButton(float cx, float cy, float w, float h) {
+    UiRect r;
+    r.x = cx - w * 0.5f;
+    r.y = cy - h * 0.5f;
+    r.w = w;
+    r.h = h;
+    return r;
+}
+
+static MenuLayout makeMenuLayout(int w, int h) {
+    MenuLayout layout;
+    float bw = 260.0f;
+    float bh = 70.0f;
+    float cx = w * 0.5f;
+    float cy = h * 0.5f - 120.0f;
+    layout.start = makeButton(cx, cy + 60.0f, bw, bh);
+    layout.exit = makeButton(cx, cy - 60.0f, bw, bh);
+    return layout;
+}
+
+static bool pointInRect(float x, float y, const UiRect& r) {
+    return x >= r.x && x <= (r.x + r.w) && y >= r.y && y <= (r.y + r.h);
+}
 
 static bool pickBoardPos(const OrbitCamera& cam, double mouseX, double mouseY, int w, int h, Pos& outPos) {
     Ray r = cam.screenRay(mouseX, mouseY, w, h);
@@ -86,6 +120,7 @@ static void framebufferSizeCallback(GLFWwindow* window, int w, int h) {
 static void cursorPosCallback(GLFWwindow* window, double x, double y) {
     auto* app = (App*)glfwGetWindowUserPointer(window);
     if (!app) return;
+    if (app->mode != AppMode::Playing) return;
 
     if (app->input.rmbDown) {
         double dx = x - app->input.lastX;
@@ -119,6 +154,21 @@ static void mouseButtonCallback(GLFWwindow* window, int button, int action, int 
         double mx = 0.0, my = 0.0;
         glfwGetCursorPos(window, &mx, &my);
 
+        if (app->mode == AppMode::Menu) {
+            MenuLayout layout = makeMenuLayout(app->w, app->h);
+            float sx = (float)mx;
+            float sy = (float)app->h - (float)my;
+            if (pointInRect(sx, sy, layout.start)) {
+                if (app->renderer.isPreloadReady()) {
+                    app->game.reset();
+                    app->mode = AppMode::Playing;
+                }
+            } else if (pointInRect(sx, sy, layout.exit)) {
+                glfwSetWindowShouldClose(window, GLFW_TRUE);
+            }
+            return;
+        }
+
         Pos p;
         if (pickBoardPos(app->cam, mx, my, app->w, app->h, p)) {
             app->game.clickAt(p);
@@ -131,6 +181,7 @@ static void scrollCallback(GLFWwindow* window, double xoffset, double yoffset) {
     (void)xoffset;
     auto* app = (App*)glfwGetWindowUserPointer(window);
     if (!app) return;
+    if (app->mode != AppMode::Playing) return;
 
     app->cam.distance -= (float)yoffset * 0.8f;
     app->cam.distance = clampf(app->cam.distance, 6.0f, 30.0f);
@@ -143,6 +194,19 @@ static void keyCallback(GLFWwindow* window, int key, int scancode, int action, i
     if (!app) return;
 
     if (action == GLFW_PRESS) {
+        if (app->mode == AppMode::Menu) {
+            if (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER) {
+                if (app->renderer.isPreloadReady()) {
+                    app->game.reset();
+                    app->mode = AppMode::Playing;
+                }
+                return;
+            }
+            if (key == GLFW_KEY_ESCAPE) {
+                glfwSetWindowShouldClose(window, GLFW_TRUE);
+                return;
+            }
+        }
         if (key == GLFW_KEY_ESCAPE) {
             glfwSetWindowShouldClose(window, GLFW_TRUE);
         }
@@ -169,9 +233,9 @@ int main() {
 
     App app;
     app.cam.target = glm::vec3(0.0f, 0.0f, 0.0f);
-    app.cam.yawDeg = 45.0f;
-    app.cam.pitchDeg = 55.0f;
-    app.cam.distance = 16.0f;
+    app.cam.yawDeg = -90.0f;
+    app.cam.pitchDeg = 43.5f;
+    app.cam.distance = 13.5f;
 
     app.window = glfwCreateWindow(app.w, app.h, "Xiangqi3D (OpenGL)", nullptr, nullptr);
     if (!app.window) {
@@ -216,6 +280,7 @@ int main() {
         glfwTerminate();
         return 1;
     }
+    app.renderer.beginPreload();
 
     double lastTime = glfwGetTime();
     while (!glfwWindowShouldClose(app.window)) {
@@ -223,13 +288,31 @@ int main() {
         float dt = (float)(now - lastTime);
         lastTime = now;
 
-        app.game.update(dt);
+        if (app.mode == AppMode::Playing) {
+            app.game.update(dt);
+        }
 
-        updateWindowTitle(app.window, app.game);
-        app.renderer.draw(app.cam, app.game);
+        updateWindowTitle(app.window, app.game, app.mode);
+        if (app.mode == AppMode::Menu) {
+            MenuLayout layout = makeMenuLayout(app.w, app.h);
+            double mx = 0.0, my = 0.0;
+            glfwGetCursorPos(app.window, &mx, &my);
+            float sx = (float)mx;
+            float sy = (float)app.h - (float)my;
+            bool ready = app.renderer.isPreloadReady();
+            bool hoverStart = ready && pointInRect(sx, sy, layout.start);
+            bool hoverExit = pointInRect(sx, sy, layout.exit);
+            app.renderer.drawMenu(layout, hoverStart, hoverExit, ready);
+        } else {
+            app.renderer.draw(app.cam, app.game);
+        }
 
         glfwSwapBuffers(app.window);
         glfwPollEvents();
+
+        if (!app.renderer.isPreloadReady()) {
+            app.renderer.preloadStep(1);
+        }
     }
 
     glfwDestroyWindow(app.window);

@@ -22,7 +22,7 @@ inline constexpr bool BOARD_DRAW_GRID = false;
 inline constexpr float PIECE_Y = 0.08f;      // piece base offset above board
 inline constexpr float PIECE_Y_OFFSET = 0.0f;
 
-inline constexpr float PIECE_MODEL_SCALE = 0.7f;
+inline constexpr float PIECE_MODEL_SCALE = 0.8f;
 inline constexpr bool BOARD_USE_ALBEDO = true;
 
 inline constexpr float CAPTURE_ANIM_SECONDS = 0.35f;
@@ -38,5 +38,10 @@ inline const std::string BOARD_MODEL_GLTF = "assets/models/board/board.gltf";
 inline const std::string BOARD_MODEL_OBJ = "assets/models/board/board.obj";
 
 inline const std::string PIECES_DIR = "assets/models/pieces";
+
+// Font for UI text rendering.
+inline const std::string FONT_PATH = "assets/fonts/NotoSansSC-Regular.otf";
+// Menu background image.
+inline const std::string MENU_BG_TEXTURE = "assets/textures/bgc.png";
 
 } // namespace cfg
