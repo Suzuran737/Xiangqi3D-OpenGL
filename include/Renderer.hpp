@@ -43,9 +43,14 @@ private:
 
     Shader m_basicShader;
     Shader m_lineShader;
+    Shader m_shadowShader;
 
     TextRenderer m_text;
     Texture2D m_menuBg;
+    Texture2D m_boardNormal;
+    GLuint m_shadowFBO = 0;
+    GLuint m_shadowTex = 0;
+    int m_shadowSize = 2048;
 
     Model m_boardModel;
     bool m_hasBoardModel = false;

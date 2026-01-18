@@ -9,7 +9,7 @@ enum class Side : uint8_t {
 };
 
 inline const char* sideNameCN(Side s) {
-    return (s == Side::Red) ? "Red" : "Black";
+    return (s == Side::Red) ? u8"\u7ea2\u65b9" : u8"\u9ed1\u65b9";
 }
 
 enum class PieceType : uint8_t {

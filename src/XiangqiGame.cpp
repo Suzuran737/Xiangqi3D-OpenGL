@@ -19,9 +19,11 @@ void XiangqiGame::reset() {
     m_selected.reset();
     m_legalTargets.clear();
     m_captures.clear();
+    m_moves.clear();
 
     m_eventText.clear();
     m_eventTimer = 0.0f;
+    m_time = 0.0f;
 }
 
 bool XiangqiGame::inCheck(Side s) const {
@@ -77,6 +79,7 @@ bool XiangqiGame::clickAt(const Pos& p) {
         return false;
     }
 
+    Piece moving = *m_board.at(*m_selected);
     Move m{*m_selected, p};
     // record capture visual (if any)
     if (m_board.at(p).has_value()) {
@@ -85,6 +88,7 @@ bool XiangqiGame::clickAt(const Pos& p) {
     }
 
     xiangqi::applyMove(m_board, m);
+    m_moves.push_back(MoveVisual{moving, m.from, m.to, 0.0f, cfg::MOVE_ANIM_SECONDS});
 
     // End selection and switch turn
     m_selected.reset();
@@ -146,6 +150,19 @@ void XiangqiGame::update(float dt) {
         m_captures.end()
     );
 
+    // Update move visuals
+    for (auto& mv : m_moves) {
+        mv.t += dt;
+    }
+    m_moves.erase(
+        std::remove_if(m_moves.begin(), m_moves.end(), [](const MoveVisual& mv) {
+            return mv.t >= mv.duration;
+        }),
+        m_moves.end()
+    );
+
+    m_time += dt;
+
     // Fade out transient event prompt.
     if (m_status == GameStatus::Ongoing && m_eventTimer > 0.0f) {
         m_eventTimer -= dt;
@@ -157,12 +174,12 @@ void XiangqiGame::update(float dt) {
 }
 
 std::string XiangqiGame::statusTextCN() const {
-    if (m_status == GameStatus::RedWin) return "Red wins";
-    if (m_status == GameStatus::BlackWin) return "Black wins";
+    if (m_status == GameStatus::RedWin) return u8"\u7ea2\u65b9\u80dc";
+    if (m_status == GameStatus::BlackWin) return u8"\u9ed1\u65b9\u80dc";
 
-    std::string s = std::string(sideNameCN(m_sideToMove)) + " to move";
+    std::string s = std::string(sideNameCN(m_sideToMove)) + u8"\u8d70\u68cb";
     if (xiangqi::isInCheck(m_board, m_sideToMove)) {
-        s += " (in check)";
+        s += u8" (被将军)";
     }
     return s;
 }

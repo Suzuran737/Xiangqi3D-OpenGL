@@ -16,6 +16,14 @@ struct CaptureVisual {
     float duration = cfg::CAPTURE_ANIM_SECONDS;
 };
 
+struct MoveVisual {
+    Piece piece;
+    Pos from;
+    Pos to;
+    float t = 0.0f;
+    float duration = cfg::MOVE_ANIM_SECONDS;
+};
+
 enum class GameStatus {
     Ongoing,
     RedWin,
@@ -37,6 +45,9 @@ public:
     const std::vector<Pos>& legalTargets() const { return m_legalTargets; }
 
     const std::vector<CaptureVisual>& captures() const { return m_captures; }
+    const std::vector<MoveVisual>& moves() const { return m_moves; }
+
+    float timeSeconds() const { return m_time; }
 
     bool inCheck(Side s) const;
 
@@ -66,6 +77,9 @@ private:
     std::vector<Pos> m_legalTargets;
 
     std::vector<CaptureVisual> m_captures;
+    std::vector<MoveVisual> m_moves;
+
+    float m_time = 0.0f;
 
     // last event prompt (check / mate). For ongoing games, this fades out.
     std::string m_eventText;

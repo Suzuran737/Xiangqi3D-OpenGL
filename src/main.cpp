@@ -234,8 +234,8 @@ int main() {
     App app;
     app.cam.target = glm::vec3(0.0f, 0.0f, 0.0f);
     app.cam.yawDeg = -90.0f;
-    app.cam.pitchDeg = 43.5f;
-    app.cam.distance = 13.5f;
+    app.cam.pitchDeg = 52.0f;
+    app.cam.distance = 15.0f;
 
     app.window = glfwCreateWindow(app.w, app.h, "Xiangqi3D (OpenGL)", nullptr, nullptr);
     if (!app.window) {

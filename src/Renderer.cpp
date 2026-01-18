@@ -61,20 +61,16 @@ static float sine01(float t) {
     return 0.5f + 0.5f * std::sin(t);
 }
 
-static glm::mat4 makeShadowMatrix(const glm::vec3& lightDir, float planeY) {
-    glm::vec4 P(0.0f, 1.0f, 0.0f, -planeY);
-    glm::vec4 L(lightDir, 0.0f);
-    float dot = glm::dot(P, L);
+static float easeInOut(float t) {
+    return t * t * (3.0f - 2.0f * t);
+}
 
-    glm::mat4 M(0.0f);
-    for (int row = 0; row < 4; ++row) {
-        for (int col = 0; col < 4; ++col) {
-            float v = dot * ((row == col) ? 1.0f : 0.0f) - L[row] * P[col];
-            M[col][row] = v;
-        }
-    }
-
-    return M;
+static glm::mat4 makeLightSpaceMatrix(const glm::vec3& lightDir) {
+    glm::vec3 center(0.0f, 0.0f, 0.0f);
+    glm::vec3 lightPos = center - lightDir * 16.0f;
+    glm::mat4 lightView = glm::lookAt(lightPos, center, glm::vec3(0.0f, 1.0f, 0.0f));
+    glm::mat4 lightProj = glm::ortho(-8.5f, 8.5f, -9.5f, 9.5f, 1.0f, 30.0f);
+    return lightProj * lightView;
 }
 
 bool Renderer::init(int viewportW, int viewportH) {
@@ -84,6 +80,7 @@ bool Renderer::init(int viewportW, int viewportH) {
     try {
         m_basicShader = Shader("assets/shaders/basic.vert", "assets/shaders/basic.frag");
         m_lineShader  = Shader("assets/shaders/line.vert",  "assets/shaders/line.frag");
+        m_shadowShader = Shader("assets/shaders/shadow.vert", "assets/shaders/shadow.frag");
     } catch (const std::exception& e) {
         util::logError(e.what());
         return false;
@@ -105,6 +102,35 @@ bool Renderer::init(int viewportW, int viewportH) {
     } else {
         util::logWarn(std::string("Menu background not found: ") + cfg::MENU_BG_TEXTURE);
     }
+    if (util::fileExists(cfg::BOARD_NORMAL_MAP)) {
+        m_boardNormal = Texture2D::fromFile(cfg::BOARD_NORMAL_MAP, true);
+    } else {
+        util::logWarn(std::string("Board normal map not found: ") + cfg::BOARD_NORMAL_MAP);
+    }
+
+    glGenFramebuffers(1, &m_shadowFBO);
+    glGenTextures(1, &m_shadowTex);
+    glBindTexture(GL_TEXTURE_2D, m_shadowTex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, m_shadowSize, m_shadowSize, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    float borderColor[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, m_shadowFBO);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_shadowTex, 0);
+    glDrawBuffer(GL_NONE);
+    glReadBuffer(GL_NONE);
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+        util::logWarn("Shadow framebuffer incomplete; shadows disabled.");
+        glDeleteFramebuffers(1, &m_shadowFBO);
+        glDeleteTextures(1, &m_shadowTex);
+        m_shadowFBO = 0;
+        m_shadowTex = 0;
+    }
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     bool textOk = m_text.init(cfg::FONT_PATH, viewportW, viewportH);
     if (!textOk) {
@@ -336,16 +362,104 @@ void Renderer::draw(const OrbitCamera& cam, const XiangqiGame& game) {
     glm::mat4 V = cam.view();
     glm::mat4 P = cam.projection((float)m_w / (float)m_h);
     glm::vec3 lightDir = glm::normalize(glm::vec3(-1.0f, -1.5f, -0.8f));
+    glm::mat4 lightSpace = makeLightSpaceMatrix(lightDir);
+
+    const auto& b = game.board();
+    const auto& moves = game.moves();
+    float timeSec = game.timeSeconds();
+
+    auto isMoveTarget = [&](const Pos& pos) -> bool {
+        for (const auto& mv : moves) {
+            if (mv.to == pos) return true;
+        }
+        return false;
+    };
+
+    auto moveWorldPos = [&](const MoveVisual& mv) -> glm::vec3 {
+        float u = (mv.duration > 0.0f) ? std::min(1.0f, mv.t / mv.duration) : 1.0f;
+        float k = easeInOut(u);
+        glm::vec3 a = boardToWorld(mv.from);
+        glm::vec3 bpos = boardToWorld(mv.to);
+        glm::vec3 p = glm::mix(a, bpos, k);
+        p.y += cfg::MOVE_LIFT_HEIGHT * std::sin(u * 3.14159265f);
+        return p;
+    };
+
+    bool shadowReady = (m_shadowFBO != 0 && m_shadowTex != 0);
+    if (shadowReady) {
+        glViewport(0, 0, m_shadowSize, m_shadowSize);
+        glBindFramebuffer(GL_FRAMEBUFFER, m_shadowFBO);
+        glClear(GL_DEPTH_BUFFER_BIT);
+        glEnable(GL_DEPTH_TEST);
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_FRONT);
+
+        m_shadowShader.use();
+        m_shadowShader.setMat4("lightSpaceMatrix", lightSpace);
+
+        auto drawShadowModel = [&](const Model* model, const glm::vec3& wpos, float scale) {
+            glm::mat4 M = glm::translate(glm::mat4(1.0f), wpos);
+            M = glm::scale(M, glm::vec3(cfg::PIECE_MODEL_SCALE * scale));
+            M = M * model->suggestedTransform();
+            m_shadowShader.setMat4("model", M);
+            model->draw();
+        };
+
+        for (const auto& mv : moves) {
+            const Model* model = getPieceModelOrNull(pieceKey(mv.piece));
+            if (!model) continue;
+            drawShadowModel(model, moveWorldPos(mv), 1.0f);
+        }
+
+        for (int y = 0; y < 10; ++y) {
+            for (int x = 0; x < 9; ++x) {
+                if (!b.cells[y][x]) continue;
+                Pos pos{x, y};
+                if (isMoveTarget(pos)) continue;
+
+                Piece p = *b.cells[y][x];
+                bool selected = game.selected() && *game.selected() == pos;
+                float pulse = selected ? sine01(timeSec * 3.4f) : 0.0f;
+                float scale = selected ? (1.04f + 0.04f * pulse) : 1.0f;
+                float lift = selected ? (0.06f * pulse) : 0.0f;
+
+                glm::vec3 wpos = boardToWorld(pos);
+                wpos.y += lift;
+
+                const Model* model = getPieceModelOrNull(pieceKey(p));
+                if (!model) continue;
+                drawShadowModel(model, wpos, scale);
+            }
+        }
+
+        glCullFace(GL_BACK);
+        glDisable(GL_CULL_FACE);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glViewport(0, 0, m_w, m_h);
+    }
 
     m_basicShader.use();
     m_basicShader.setMat4("view", V);
     m_basicShader.setMat4("projection", P);
     m_basicShader.setVec3("lightDir", lightDir);
     m_basicShader.setVec3("viewPos", cam.position());
-    m_basicShader.setFloat("specularStrength", 0.22f);
-    m_basicShader.setFloat("shininess", 32.0f);
+    m_basicShader.setMat4("lightSpaceMatrix", lightSpace);
+    m_basicShader.setInt("shadowMap", 1);
+    m_basicShader.setInt("normalMap", 2);
+    m_basicShader.setFloat("roughness", cfg::BOARD_ROUGHNESS);
+    m_basicShader.setFloat("metalness", cfg::BOARD_METALNESS);
+    m_basicShader.setInt("useShadow", shadowReady ? 1 : 0);
+    m_basicShader.setInt("useNormalMap", m_boardNormal.valid() ? 1 : 0);
 
     m_basicShader.setInt("albedoMap", 0);
+    if (shadowReady) {
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, m_shadowTex);
+    }
+    if (m_boardNormal.valid()) {
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, m_boardNormal.id());
+    }
 
     if (cfg::BOARD_USE_ALBEDO && m_boardModel.hasAlbedo()) {
         glActiveTexture(GL_TEXTURE0);
@@ -362,6 +476,17 @@ void Renderer::draw(const OrbitCamera& cam, const XiangqiGame& game) {
     m_boardModel.draw();
 
     glBindTexture(GL_TEXTURE_2D, 0);
+    if (m_boardNormal.valid()) {
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
+    if (shadowReady) {
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
+    glActiveTexture(GL_TEXTURE0);
+    m_basicShader.setInt("useNormalMap", 0);
+    m_basicShader.setInt("useShadow", 0);
 
     if (cfg::BOARD_DRAW_GRID) {
         m_lineShader.use();
@@ -379,8 +504,10 @@ void Renderer::draw(const OrbitCamera& cam, const XiangqiGame& game) {
     m_basicShader.setMat4("projection", P);
     m_basicShader.setVec3("lightDir", lightDir);
     m_basicShader.setVec3("viewPos", cam.position());
-    m_basicShader.setFloat("specularStrength", 0.0f);
-    m_basicShader.setFloat("shininess", 8.0f);
+    m_basicShader.setFloat("roughness", 1.0f);
+    m_basicShader.setFloat("metalness", 0.0f);
+    m_basicShader.setInt("useShadow", 0);
+    m_basicShader.setInt("useNormalMap", 0);
     m_basicShader.setInt("useTexture", 0);
 
     if (game.selected()) {
@@ -402,71 +529,97 @@ void Renderer::draw(const OrbitCamera& cam, const XiangqiGame& game) {
         }
     }
 
-    const auto& b = game.board();
+    m_basicShader.setFloat("roughness", cfg::PIECE_ROUGHNESS);
+    m_basicShader.setFloat("metalness", cfg::PIECE_METALNESS);
+    m_basicShader.setInt("albedoMap", 0);
+    for (const auto& mv : moves) {
+        const Model* model = getPieceModelOrNull(pieceKey(mv.piece));
+        if (!model) continue;
 
-    // Draw planar shadows for pieces onto the board.
-    glm::mat4 shadowProj = makeShadowMatrix(lightDir, cfg::BOARD_PLANE_Y + 0.002f);
-    glDepthMask(GL_FALSE);
-    m_basicShader.use();
-    m_basicShader.setMat4("view", V);
-    m_basicShader.setMat4("projection", P);
-    m_basicShader.setVec3("lightDir", lightDir);
-    m_basicShader.setVec3("viewPos", cam.position());
-    m_basicShader.setInt("useTexture", 0);
-    m_basicShader.setVec3("baseColor", glm::vec3(0.0f, 0.0f, 0.0f));
-    m_basicShader.setFloat("alpha", 0.28f);
-    m_basicShader.setFloat("specularStrength", 0.0f);
-    m_basicShader.setFloat("shininess", 8.0f);
+        glm::vec3 wpos = moveWorldPos(mv);
 
-    for (int y = 0; y < 10; ++y) {
-        for (int x = 0; x < 9; ++x) {
-            if (!b.cells[y][x]) continue;
-            Piece p = *b.cells[y][x];
-            Pos pos{x, y};
+        m_basicShader.use();
+        m_basicShader.setMat4("view", V);
+        m_basicShader.setMat4("projection", P);
+        m_basicShader.setVec3("lightDir", lightDir);
+        m_basicShader.setVec3("viewPos", cam.position());
+        m_basicShader.setFloat("roughness", cfg::PIECE_ROUGHNESS);
+        m_basicShader.setFloat("metalness", cfg::PIECE_METALNESS);
+        m_basicShader.setInt("useShadow", 0);
+        m_basicShader.setInt("useNormalMap", 0);
+        m_basicShader.setFloat("alpha", 1.0f);
 
-            glm::vec3 wpos = boardToWorld(pos);
-            float scale = 1.0f;
-            if (game.selected() && *game.selected() == pos) scale = 1.12f;
+        if (model->hasAlbedo()) {
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, model->albedoId());
+            m_basicShader.setInt("useTexture", 1);
+            m_basicShader.setVec3("baseColor", glm::vec3(1.0f));
+        } else {
+            m_basicShader.setInt("useTexture", 0);
+            m_basicShader.setVec3("baseColor", sideColor(mv.piece.side));
+        }
 
-            const Model* model = getPieceModelOrNull(pieceKey(p));
-            if (!model) continue;
-
-            glm::mat4 M = glm::translate(glm::mat4(1.0f), wpos);
-            M = glm::scale(M, glm::vec3(cfg::PIECE_MODEL_SCALE * scale));
-            M = M * model->suggestedTransform();
-
-            m_basicShader.setMat4("model", shadowProj * M);
-            model->draw();
+        glm::mat4 M = glm::translate(glm::mat4(1.0f), wpos);
+        M = glm::scale(M, glm::vec3(cfg::PIECE_MODEL_SCALE));
+        M = M * model->suggestedTransform();
+        m_basicShader.setMat4("model", M);
+        model->draw();
+        if (model->hasAlbedo()) {
+            glBindTexture(GL_TEXTURE_2D, 0);
         }
     }
-    glDepthMask(GL_TRUE);
 
-    m_basicShader.setFloat("specularStrength", 0.26f);
-    m_basicShader.setFloat("shininess", 32.0f);
-    m_basicShader.setInt("albedoMap", 0);
     for (int y = 0; y < 10; ++y) {
         for (int x = 0; x < 9; ++x) {
             if (!b.cells[y][x]) continue;
-            Piece p = *b.cells[y][x];
             Pos pos{x, y};
+            if (isMoveTarget(pos)) continue;
+
+            Piece p = *b.cells[y][x];
 
             glm::vec3 wpos = boardToWorld(pos);
 
-            float scale = 1.0f;
-            if (game.selected() && *game.selected() == pos) scale = 1.12f;
+            bool selected = game.selected() && *game.selected() == pos;
+            float pulse = selected ? sine01(timeSec * 3.4f) : 0.0f;
+            float scale = selected ? (1.04f + 0.04f * pulse) : 1.0f;
+            float lift = selected ? (0.06f * pulse) : 0.0f;
+            wpos.y += lift;
 
             m_basicShader.use();
             m_basicShader.setMat4("view", V);
             m_basicShader.setMat4("projection", P);
             m_basicShader.setVec3("lightDir", lightDir);
             m_basicShader.setVec3("viewPos", cam.position());
-            m_basicShader.setFloat("specularStrength", 0.26f);
-            m_basicShader.setFloat("shininess", 32.0f);
+            m_basicShader.setFloat("roughness", cfg::PIECE_ROUGHNESS);
+            m_basicShader.setFloat("metalness", cfg::PIECE_METALNESS);
+            m_basicShader.setInt("useShadow", 0);
+            m_basicShader.setInt("useNormalMap", 0);
             m_basicShader.setFloat("alpha", 1.0f);
 
             const Model* model = getPieceModelOrNull(pieceKey(p));
             if (!model) {
                 continue;
+            }
+
+            if (selected) {
+                glDepthMask(GL_FALSE);
+                glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+                m_basicShader.setInt("useTexture", 0);
+                m_basicShader.setVec3("baseColor", glm::vec3(1.0f, 0.86f, 0.55f));
+                m_basicShader.setFloat("alpha", 0.35f);
+                m_basicShader.setFloat("roughness", 1.0f);
+                m_basicShader.setFloat("metalness", 0.0f);
+
+                glm::mat4 glowM = glm::translate(glm::mat4(1.0f), wpos);
+                glowM = glm::scale(glowM, glm::vec3(cfg::PIECE_MODEL_SCALE * scale * 1.08f));
+                glowM = glowM * model->suggestedTransform();
+                m_basicShader.setMat4("model", glowM);
+                model->draw();
+                glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+                glDepthMask(GL_TRUE);
+                m_basicShader.setFloat("roughness", cfg::PIECE_ROUGHNESS);
+                m_basicShader.setFloat("metalness", cfg::PIECE_METALNESS);
+                m_basicShader.setFloat("alpha", 1.0f);
             }
 
             if (model->hasAlbedo()) {
@@ -502,8 +655,10 @@ void Renderer::draw(const OrbitCamera& cam, const XiangqiGame& game) {
         m_basicShader.setMat4("projection", P);
         m_basicShader.setVec3("lightDir", lightDir);
         m_basicShader.setVec3("viewPos", cam.position());
-        m_basicShader.setFloat("specularStrength", 0.26f);
-        m_basicShader.setFloat("shininess", 32.0f);
+        m_basicShader.setFloat("roughness", cfg::PIECE_ROUGHNESS);
+        m_basicShader.setFloat("metalness", cfg::PIECE_METALNESS);
+        m_basicShader.setInt("useShadow", 0);
+        m_basicShader.setInt("useNormalMap", 0);
         m_basicShader.setFloat("alpha", alpha);
 
         const Model* model = getPieceModelOrNull(pieceKey(c.piece));
@@ -530,6 +685,17 @@ void Renderer::draw(const OrbitCamera& cam, const XiangqiGame& game) {
             glBindTexture(GL_TEXTURE_2D, 0);
         }
     }
+
+    // UI: show current turn and check status in the top-left.
+    glDisable(GL_DEPTH_TEST);
+    const std::string status = game.statusTextCN();
+    if (!status.empty()) {
+        float x = 20.0f;
+        float y = (float)m_h - 28.0f;
+        float scale = 0.6f;
+        m_text.renderText(status, x + 2.0f, y - 2.0f, scale, glm::vec3(0.05f, 0.05f, 0.05f));
+        m_text.renderText(status, x, y, scale, glm::vec3(0.95f, 0.95f, 0.95f));
+    }
 }
 
 void Renderer::drawMenu(const MenuLayout& layout, bool hoverStart, bool hoverExit, bool startEnabled) {
@@ -552,8 +718,10 @@ void Renderer::drawMenu(const MenuLayout& layout, bool hoverStart, bool hoverExi
     m_basicShader.setVec3("viewPos", glm::vec3(0.0f, 0.0f, 1.0f));
     m_basicShader.setInt("useTexture", 0);
     m_basicShader.setFloat("alpha", 1.0f);
-    m_basicShader.setFloat("specularStrength", 0.0f);
-    m_basicShader.setFloat("shininess", 8.0f);
+    m_basicShader.setFloat("roughness", 1.0f);
+    m_basicShader.setFloat("metalness", 0.0f);
+    m_basicShader.setInt("useShadow", 0);
+    m_basicShader.setInt("useNormalMap", 0);
     m_basicShader.setInt("albedoMap", 0);
 
     auto drawRect = [&](const UiRect& r, const glm::vec3& color, float alpha) {

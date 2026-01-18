@@ -26,6 +26,13 @@ inline constexpr float PIECE_MODEL_SCALE = 0.8f;
 inline constexpr bool BOARD_USE_ALBEDO = true;
 
 inline constexpr float CAPTURE_ANIM_SECONDS = 0.35f;
+inline constexpr float MOVE_ANIM_SECONDS = 0.28f;
+inline constexpr float MOVE_LIFT_HEIGHT = 0.18f;
+
+inline constexpr float BOARD_ROUGHNESS = 0.65f;
+inline constexpr float BOARD_METALNESS = 0.05f;
+inline constexpr float PIECE_ROUGHNESS = 0.45f;
+inline constexpr float PIECE_METALNESS = 0.05f;
 
 // Models you provide:
 // Board model expected at: assets/models/board/board.glb
@@ -43,5 +50,7 @@ inline const std::string PIECES_DIR = "assets/models/pieces";
 inline const std::string FONT_PATH = "assets/fonts/NotoSansSC-Regular.otf";
 // Menu background image.
 inline const std::string MENU_BG_TEXTURE = "assets/textures/bgc.png";
+// Board normal map (optional).
+inline const std::string BOARD_NORMAL_MAP = "assets/textures/board_normal.png";
 
 } // namespace cfg
