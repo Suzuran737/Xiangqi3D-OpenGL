@@ -1,0 +1,36 @@
+# build outputs
+build/
+build-*/
+out/
+cmake-build-*/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.ninja
+*.ninja_deps
+*.ninja_log
+
+# VS / Windows
+.vs/
+*.sln
+*.vcxproj*
+*.filters
+*.user
+*.pdb
+*.obj
+*.exe
+*.dll
+*.ilk
+
+# logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# dependencies you may generate
+_deps/
