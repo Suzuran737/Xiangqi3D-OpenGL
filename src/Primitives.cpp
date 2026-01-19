@@ -10,6 +10,7 @@ namespace prim {
 
 static constexpr float PI = 3.14159265358979323846f;
 
+// 追加一个三角形的顶点与索引
 static void addTri(std::vector<VertexPN>& v, std::vector<unsigned int>& idx,
                    const glm::vec3& a, const glm::vec3& b, const glm::vec3& c,
                    const glm::vec3& n)
@@ -23,7 +24,9 @@ static void addTri(std::vector<VertexPN>& v, std::vector<unsigned int>& idx,
     idx.push_back(base + 2);
 }
 
+// 在水平平面生成圆盘
 Mesh makeDisc(float radius, int slices) {
+    // 三角数不足时修正
     if (slices < 3) slices = 3;
 
     std::vector<VertexPN> v;
@@ -35,7 +38,7 @@ Mesh makeDisc(float radius, int slices) {
     const glm::vec3 n(0, 1, 0);
     const glm::vec3 center(0, 0, 0);
 
-    // Fan triangles: center - p(i) - p(i+1)
+    // 扇形三角：中心点 - 当前点 - 下一点
     for (int i = 0; i < slices; ++i) {
         float a0 = (float)i / (float)slices * 2.0f * PI;
         float a1 = (float)(i + 1) / (float)slices * 2.0f * PI;
@@ -49,4 +52,4 @@ Mesh makeDisc(float radius, int slices) {
     return Mesh::fromTriangles(v, idx);
 }
 
-} // namespace prim
+} // 基础几何命名空间

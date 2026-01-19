@@ -7,11 +7,13 @@
 #include <string>
 #include <vector>
 
+// 轴对齐包围盒
 struct AABB {
     glm::vec3 min;
     glm::vec3 max;
 };
 
+// 模型加载与绘制
 class Model {
 public:
     Model() = default;
@@ -22,7 +24,7 @@ public:
 
     const AABB& aabb() const { return m_aabb; }
 
-    // Accessors used by Renderer.
+    // Renderer 使用的访问接口
     bool hasAlbedo() const { return m_albedo.valid(); }
     GLuint albedoId() const { return m_albedo.id(); }
     const glm::mat4& suggestedTransform() const { return m_suggested; }

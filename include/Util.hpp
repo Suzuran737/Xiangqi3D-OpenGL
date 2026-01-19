@@ -39,7 +39,7 @@ inline void logError(const std::string& msg) {
     std::cerr << "[ERROR] " << msg << std::endl;
 }
 
-// Minimal UTF-8 to Unicode codepoints (UTF-32) decoder.
+// 简易 UTF-8 转 Unicode 码点（UTF-32）解析器
 inline std::vector<char32_t> utf8ToCodepoints(std::string_view s) {
     std::vector<char32_t> out;
     size_t i = 0;
@@ -66,11 +66,11 @@ inline std::vector<char32_t> utf8ToCodepoints(std::string_view s) {
             out.push_back(cp);
             i += 4;
         } else {
-            // Invalid byte sequence, skip.
+            // 非法字节序列，跳过。
             i += 1;
         }
     }
     return out;
 }
 
-} // namespace util
+} // util 命名空间

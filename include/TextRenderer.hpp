@@ -4,10 +4,10 @@
 
 #include <glad/gl.h>
 #include <glm/glm.hpp>
-
 #include <string>
 #include <unordered_map>
 
+// 单个字形缓存
 struct Glyph {
     GLuint texture = 0;
     glm::ivec2 size{};
@@ -15,12 +15,14 @@ struct Glyph {
     unsigned int advance = 0;
 };
 
+// 文本测量结果
 struct TextMetrics {
     float width = 0.0f;
     float ascent = 0.0f;
     float descent = 0.0f;
 };
 
+// 文本渲染器（FreeType）
 class TextRenderer {
 public:
     TextRenderer() = default;

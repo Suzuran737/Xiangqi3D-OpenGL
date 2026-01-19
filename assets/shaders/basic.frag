@@ -1,4 +1,5 @@
 #version 330 core
+// 基础模型片段着色器，支持纹理/法线/阴影
 in vec3 vNormal;
 in vec3 vWorldPos;
 in vec2 vUV;

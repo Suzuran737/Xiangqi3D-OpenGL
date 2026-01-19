@@ -4,6 +4,7 @@
 
 #include <stdexcept>
 
+// 编译单个着色器
 static GLuint compile(GLenum type, const std::string& src) {
     GLuint s = glCreateShader(type);
     const char* c = src.c_str();
@@ -24,6 +25,7 @@ static GLuint compile(GLenum type, const std::string& src) {
     return s;
 }
 
+// 读取源码，编译并链接程序
 Shader::Shader(const std::string& vertexPath, const std::string& fragmentPath) {
     std::string vs = util::readTextFile(vertexPath);
     std::string fs = util::readTextFile(fragmentPath);
@@ -50,6 +52,7 @@ Shader::Shader(const std::string& vertexPath, const std::string& fragmentPath) {
     }
 }
 
+// 释放着色器程序
 Shader::~Shader() {
     if (m_program) {
         glDeleteProgram(m_program);
@@ -71,30 +74,36 @@ Shader& Shader::operator=(Shader&& other) noexcept {
     return *this;
 }
 
+// 使用当前着色器
 void Shader::use() const {
     glUseProgram(m_program);
 }
 
+// 设置四乘四矩阵着色器变量
 void Shader::setMat4(const std::string& name, const glm::mat4& m) const {
     GLint loc = glGetUniformLocation(m_program, name.c_str());
     glUniformMatrix4fv(loc, 1, GL_FALSE, &m[0][0]);
 }
 
+// 设置三维向量着色器变量
 void Shader::setVec3(const std::string& name, const glm::vec3& v) const {
     GLint loc = glGetUniformLocation(m_program, name.c_str());
     glUniform3f(loc, v.x, v.y, v.z);
 }
 
+// 设置四维向量着色器变量
 void Shader::setVec4(const std::string& name, const glm::vec4& v) const {
     GLint loc = glGetUniformLocation(m_program, name.c_str());
     glUniform4f(loc, v.x, v.y, v.z, v.w);
 }
 
+// 设置浮点数着色器变量
 void Shader::setFloat(const std::string& name, float f) const {
     GLint loc = glGetUniformLocation(m_program, name.c_str());
     glUniform1f(loc, f);
 }
 
+// 设置整数着色器变量
 void Shader::setInt(const std::string& name, int i) const {
     GLint loc = glGetUniformLocation(m_program, name.c_str());
     glUniform1i(loc, i);

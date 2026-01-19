@@ -12,7 +12,7 @@ glm::vec3 OrbitCamera::position() const {
     dir.y = std::sin(pitch);
     dir.z = std::cos(pitch) * std::sin(yaw);
 
-    // Camera looks toward target from opposite direction
+    // 摄像机从目标反方向看向目标
     return target + dir * distance;
 }
 

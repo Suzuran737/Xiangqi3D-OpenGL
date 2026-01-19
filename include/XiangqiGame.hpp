@@ -10,7 +10,7 @@
 
 struct CaptureVisual {
     Piece piece;
-    // captured at this board position (before removal)
+    // 在该棋盘位置被吃（移除前）
     Pos pos;
     float t = 0.0f;
     float duration = cfg::CAPTURE_ANIM_SECONDS;
@@ -57,21 +57,21 @@ public:
 
     bool inCheck(Side s) const;
 
-    // User clicks a board intersection. Returns true if game state changed.
+    // 用户点击棋盘交点；如游戏状态改变则返回 true
     bool clickAt(const Pos& p);
 
-    // Animation updates
+    // 动画更新
     void update(float dt);
 
-    // UI message
+    // 界面文本
     std::string statusTextCN() const;
 
-    // Transient/important prompt (check / mate).
-    // - Ongoing: shown for a short time after the last move.
-    // - GameOver: shown permanently.
+    // 临时/重要提示（将军/将死）
+    // - 对局中：在最后一步后短暂显示
+    // - 结束：永久显示
     std::string eventTextCN() const;
 
-    // Suggested window title suffix (works even when font is missing)
+    // 窗口标题后缀（即使缺少字体也可用）
     std::string windowTitleCN() const;
 
 private:
@@ -90,9 +90,9 @@ private:
     float m_checkFlashTimer = 0.0f;
     float m_resultTimer = 0.0f;
 
-    // last event prompt (check / mate). For ongoing games, this fades out.
+    // 上一次事件提示（将军/将死）；对局中会逐渐淡出
     std::string m_eventText;
-    float m_eventTimer = 0.0f; // seconds remaining; <0 means permanent
+    float m_eventTimer = 0.0f; // 剩余秒数；<0 表示永久
 
     void computeLegalTargets();
     void afterMove();

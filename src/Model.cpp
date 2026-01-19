@@ -14,7 +14,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 static glm::mat4 aiToGlm(const aiMatrix4x4& m) {
-    // glm is column-major: mat[col][row]
+    // glm 是列主序：mat[col][row]
     glm::mat4 r;
     r[0][0] = m.a1; r[1][0] = m.a2; r[2][0] = m.a3; r[3][0] = m.a4;
     r[0][1] = m.b1; r[1][1] = m.b2; r[2][1] = m.b3; r[3][1] = m.b4;
@@ -82,7 +82,7 @@ static void processNode(aiNode* node, const aiScene* scene, const glm::mat4& par
 static bool tryLoadAlbedoFromMaterial(Texture2D& out, const aiScene* scene, aiMaterial* mat, const std::string& modelPath) {
     aiString texPath;
 
-    // glTF2 usually uses BASE_COLOR; it may also use DIFFUSE.
+    // glTF2 通常使用 BASE_COLOR，也可能用 DIFFUSE。
     bool found = (mat->GetTexture(aiTextureType_BASE_COLOR, 0, &texPath) == aiReturn_SUCCESS) ||
                  (mat->GetTexture(aiTextureType_DIFFUSE,   0, &texPath) == aiReturn_SUCCESS);
 
@@ -91,7 +91,7 @@ static bool tryLoadAlbedoFromMaterial(Texture2D& out, const aiScene* scene, aiMa
     std::string tpath = texPath.C_Str();
     if (tpath.empty()) return false;
 
-    // Embedded texture in GLB: "*0", "*1", ...
+    // GLB 内嵌纹理： "*0", "*1", ...
     if (!tpath.empty() && tpath[0] == '*') {
         int idx = std::atoi(tpath.c_str() + 1);
         if (idx >= 0 && idx < (int)scene->mNumTextures) {
@@ -99,7 +99,7 @@ static bool tryLoadAlbedoFromMaterial(Texture2D& out, const aiScene* scene, aiMa
             if (!t) return false;
 
             if (t->mHeight == 0) {
-                // Compressed bytes in pcData, length = mWidth
+                // 压缩字节存于 pcData，长度为 mWidth
                 out = Texture2D::fromMemory(
                     reinterpret_cast<const unsigned char*>(t->pcData),
                     (int)t->mWidth,
@@ -107,7 +107,7 @@ static bool tryLoadAlbedoFromMaterial(Texture2D& out, const aiScene* scene, aiMa
                 );
                 return out.valid();
             } else {
-                // Raw texels stored as aiTexel (BGRA)
+                // 原始像素存为 aiTexel (BGRA)
                 std::vector<unsigned char> pixels;
                 pixels.resize((size_t)t->mWidth * (size_t)t->mHeight * 4);
 
@@ -126,7 +126,7 @@ static bool tryLoadAlbedoFromMaterial(Texture2D& out, const aiScene* scene, aiMa
         return false;
     }
 
-    // External texture path relative to model directory
+    // 外部纹理路径相对模型目录
     std::string modelDir = modelPath;
     auto slash = modelDir.find_last_of("/\\");
     if (slash != std::string::npos) modelDir = modelDir.substr(0, slash);
@@ -160,11 +160,11 @@ Model::Model(const std::string& path) {
         m_aabb = aabb;
     }
 
-    // ---- Fast-path: load ONE albedo texture for the whole model ----
-    // (For chessboard it's usually a single material anyway.)
+    // ---- 快速路径：为整个模型加载一张反照率纹理 ----
+    // （棋盘通常只有一个材质。）
     bool albedoLoaded = false;
     if (scene->mNumMeshes > 0 && scene->mNumMaterials > 0) {
-        // Try materials in order of meshes until we find one with albedo/diffuse texture.
+        // 按网格顺序查找，直到找到带反照率/漫反射纹理的材质。
         for (unsigned int mi = 0; mi < scene->mNumMeshes && !albedoLoaded; ++mi) {
             int matIndex = (int)scene->mMeshes[mi]->mMaterialIndex;
             if (matIndex < 0 || matIndex >= (int)scene->mNumMaterials) continue;
@@ -184,24 +184,24 @@ Model::Model(const std::string& path) {
         util::logWarn("No albedo/diffuse texture found in model material (board will render with solid color).");
     }
 
-    // ---- Build suggested transform: center XZ, bottom to y=0, scale to reasonable size ----
+    // ---- 生成建议变换：XZ 居中，底部对齐 y=0，缩放到合适大小 ----
     if (!m_meshes.empty()) {
         const AABB a = m_aabb;
         glm::vec3 size = a.max - a.min;
         glm::vec3 center = 0.5f * (a.min + a.max);
 
-        // Move center to origin in XZ, and bottom to y=0
+        // 在 XZ 方向居中到原点，底部对齐到 y=0
         glm::mat4 T = glm::translate(glm::mat4(1.0f),
             glm::vec3(-center.x, -a.min.y, -center.z));
 
-        // Scale so that the largest horizontal extent becomes 1.0 unit (roughly)
+        // 缩放使水平最大跨度约为 1.0 单位
         float horiz = std::max(size.x, size.z);
         float s = 1.0f;
         if (horiz > 1e-5f) s = 1.0f / horiz;
 
         glm::mat4 S = glm::scale(glm::mat4(1.0f), glm::vec3(s));
 
-        m_suggested = S * T; // first translate then scale
+        m_suggested = S * T; // 先平移后缩放
     }
 
     util::logInfo(std::string("Loaded model: ") + path + " meshes=" + std::to_string(m_meshes.size()));

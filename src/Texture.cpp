@@ -3,27 +3,32 @@
 
 #include <algorithm>
 
-// MSYS2 stb header location:
+// 第三方图像头文件位置：
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb/stb_image.h>
 
 
+// 上传像素数据到显卡并设置参数
 static GLuint uploadTexture(const unsigned char* pixels, int w, int h, int channels, bool mip) {
     if (!pixels || w <= 0 || h <= 0) return 0;
 
+    // 根据通道数选择格式
     GLenum fmt = (channels == 4) ? GL_RGBA : GL_RGB;
 
     GLuint tex = 0;
     glGenTextures(1, &tex);
     glBindTexture(GL_TEXTURE_2D, tex);
 
+    // 设置纹理环绕与缩放过滤
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, mip ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
+    // 上传纹理像素
     glTexImage2D(GL_TEXTURE_2D, 0, (channels == 4) ? GL_RGBA8 : GL_RGB8, w, h, 0, fmt, GL_UNSIGNED_BYTE, pixels);
+    // 按需生成多级渐远纹理
     if (mip) glGenerateMipmap(GL_TEXTURE_2D);
 
     glBindTexture(GL_TEXTURE_2D, 0);
@@ -48,8 +53,10 @@ Texture2D& Texture2D::operator=(Texture2D&& other) noexcept {
     return *this;
 }
 
+// 从文件加载纹理
 Texture2D Texture2D::fromFile(const std::string& path, bool mip) {
     Texture2D t;
+    // 翻转图像以匹配坐标体系
     stbi_set_flip_vertically_on_load(1);
 
     int w = 0, h = 0, c = 0;
@@ -66,6 +73,7 @@ Texture2D Texture2D::fromFile(const std::string& path, bool mip) {
     return t;
 }
 
+// 从内存数据解码纹理
 Texture2D Texture2D::fromMemory(const unsigned char* data, int sizeBytes, bool mip) {
     Texture2D t;
     stbi_set_flip_vertically_on_load(1);
@@ -82,6 +90,7 @@ Texture2D Texture2D::fromMemory(const unsigned char* data, int sizeBytes, bool m
     return t;
 }
 
+// 直接使用像素数据生成纹理
 Texture2D Texture2D::fromPixels(const unsigned char* pixels, int w, int h, int channels, bool mip) {
     Texture2D t;
     t.m_id = uploadTexture(pixels, w, h, channels, mip);

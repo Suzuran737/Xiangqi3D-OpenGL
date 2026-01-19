@@ -2,15 +2,16 @@
 
 #include <glad/gl.h>
 #include <glm/glm.hpp>
-
 #include <vector>
 
+// 顶点数据：位置/法线/UV
 struct VertexPN {
     glm::vec3 pos;
     glm::vec3 normal;
     glm::vec2 uv;
 };
 
+// 网格封装
 class Mesh {
 public:
     Mesh() = default;

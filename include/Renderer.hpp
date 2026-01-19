@@ -14,6 +14,7 @@
 #include <unordered_map>
 #include <vector>
 
+// UI 矩形区域
 struct UiRect {
     float x = 0.0f;
     float y = 0.0f;
@@ -21,11 +22,13 @@ struct UiRect {
     float h = 0.0f;
 };
 
+// 菜单布局
 struct MenuLayout {
     UiRect start;
     UiRect exit;
 };
 
+// 渲染器
 class Renderer {
 public:
     bool init(int viewportW, int viewportH);
@@ -66,7 +69,7 @@ private:
     Mesh m_fallbackDisc;
     Mesh m_uiQuad;
 
-    // Grid lines (we will draw even when using a board model)
+    // 网格线（即使使用棋盘模型也可绘制）
     GLuint m_lineVAO = 0;
     GLuint m_lineVBO = 0;
     GLsizei m_lineVertexCount = 0;

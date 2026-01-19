@@ -4,17 +4,20 @@
 
 namespace {
 
+// 棋盘尺寸
 constexpr int WIDTH = 9;
 constexpr int HEIGHT = 10;
 
+// 判断是否在九宫内
 bool inPalace(Side side, const Pos& p) {
     if (p.x < 3 || p.x > 5) return false;
     if (side == Side::Red) return (p.y >= 0 && p.y <= 2);
     return (p.y >= 7 && p.y <= 9);
 }
 
+// 判断相象是否过河
 bool onOwnSideForElephant(Side side, const Pos& p) {
-    // River is between y=4 and y=5
+    // 河界位于第 5 行与第 6 行之间（从 0 开始算）
     if (side == Side::Red) return p.y <= 4;
     return p.y >= 5;
 }
@@ -43,8 +46,9 @@ std::optional<Pos> findKing(const BoardState& b, Side side) {
     return std::nullopt;
 }
 
+// 车或炮直线路径是否被阻挡
 bool clearPathRookLike(const BoardState& b, const Pos& a, const Pos& c) {
-    // a and c in same row or col. Checks there are no pieces between them.
+    // 起点与终点同行或同列，且中间无子
     if (a.x == c.x) {
         int x = a.x;
         int y0 = std::min(a.y, c.y) + 1;
@@ -66,8 +70,9 @@ bool clearPathRookLike(const BoardState& b, const Pos& a, const Pos& c) {
     return false;
 }
 
+// 统计两点之间的棋子数
 int countPiecesBetweenLine(const BoardState& b, const Pos& a, const Pos& c) {
-    // assumes same row or col
+    // 假定同行或同列
     int count = 0;
     if (a.x == c.x) {
         int x = a.x;
@@ -87,14 +92,15 @@ int countPiecesBetweenLine(const BoardState& b, const Pos& a, const Pos& c) {
     return count;
 }
 
+// 判断棋子对目标格的攻击性
 bool attacksSquare(const BoardState& b, const Pos& from, Piece p, const Pos& target) {
-    // Whether piece at `from` attacks `target` (ignoring whether `from` has the piece).
+    // 判断起点棋子是否攻击目标格（不考虑起点是否真有子）
     int dx = target.x - from.x;
     int dy = target.y - from.y;
 
     switch (p.type) {
         case PieceType::King: {
-            // king attacks adjacent within palace; plus "facing kings" handled elsewhere
+            // 将在九宫内走一步；“将帅照面”另行处理
             if (!inPalace(p.side, target)) return false;
             return (std::abs(dx) + std::abs(dy) == 1);
         }
@@ -112,7 +118,7 @@ bool attacksSquare(const BoardState& b, const Pos& from, Piece p, const Pos& tar
         }
         case PieceType::Horse: {
             if (!((std::abs(dx) == 2 && std::abs(dy) == 1) || (std::abs(dx) == 1 && std::abs(dy) == 2))) return false;
-            // "leg" block
+            // 蹩马腿
             if (std::abs(dx) == 2) {
                 Pos leg{from.x + dx / 2, from.y};
                 return !hasPiece(b, leg);
@@ -127,12 +133,12 @@ bool attacksSquare(const BoardState& b, const Pos& from, Piece p, const Pos& tar
         }
         case PieceType::Cannon: {
             if (!(dx == 0 || dy == 0)) return false;
-            // cannon attacks only with exactly one screen piece between
+            // 炮吃子需隔一个“炮架”
             return countPiecesBetweenLine(b, from, target) == 1;
         }
         case PieceType::Pawn: {
             int f = forwardDir(p.side);
-            // Pawn attacks forward (always) and sideways only after crossing.
+            // 兵/卒总是向前攻击，过河后可横向
             if (dx == 0 && dy == f) return true;
             bool crossed = (p.side == Side::Red) ? (from.y >= 5) : (from.y <= 4);
             if (crossed && std::abs(dx) == 1 && dy == 0) return true;
@@ -142,6 +148,7 @@ bool attacksSquare(const BoardState& b, const Pos& from, Piece p, const Pos& tar
     return false;
 }
 
+// 生成伪合法走法（不考虑被将军）
 std::vector<Move> pseudoMovesFrom(const BoardState& b, const Pos& from, Side side) {
     std::vector<Move> out;
     if (from.x < 0 || from.x >= WIDTH || from.y < 0 || from.y >= HEIGHT) return out;
@@ -194,7 +201,7 @@ std::vector<Move> pseudoMovesFrom(const BoardState& b, const Pos& from, Side sid
                 int dx = m[0], dy = m[1];
                 Pos to{from.x + dx, from.y + dy};
                 if (!xiangqi::inBounds(to)) continue;
-                // leg
+                // 蹩马腿
                 if (std::abs(dx) == 2) {
                     Pos leg{from.x + dx/2, from.y};
                     if (hasPiece(b, leg)) continue;
@@ -270,17 +277,20 @@ struct Undo {
     std::optional<Piece> captured;
 };
 
+// 执行一步并记录可撤销信息
 void doMove(BoardState& b, const Move& m, Undo& u) {
     u.captured = b.at(m.to);
     b.at(m.to) = b.at(m.from);
     b.at(m.from) = std::nullopt;
 }
 
+// 撤销一步走子
 void undoMove(BoardState& b, const Move& m, const Undo& u) {
     b.at(m.from) = b.at(m.to);
     b.at(m.to) = u.captured;
 }
 
+// 判断将帅是否照面
 bool kingsFacing(const BoardState& b) {
     auto rK = findKing(b, Side::Red);
     auto bK = findKing(b, Side::Black);
@@ -295,10 +305,11 @@ bool kingsFacing(const BoardState& b) {
     return true;
 }
 
-} // namespace
+} // 匿名命名空间
 
 namespace xiangqi {
 
+// 初始化棋盘布局
 BoardState initialBoard() {
     BoardState b;
 
@@ -306,7 +317,7 @@ BoardState initialBoard() {
         b.cells[y][x] = Piece{side, type};
     };
 
-    // Red (bottom)
+    // 红方（下方）
     put(0, 0, Side::Red, PieceType::Rook);
     put(1, 0, Side::Red, PieceType::Horse);
     put(2, 0, Side::Red, PieceType::Elephant);
@@ -324,7 +335,7 @@ BoardState initialBoard() {
     put(6, 3, Side::Red, PieceType::Pawn);
     put(8, 3, Side::Red, PieceType::Pawn);
 
-    // Black (top)
+    // 黑方（上方）
     put(0, 9, Side::Black, PieceType::Rook);
     put(1, 9, Side::Black, PieceType::Horse);
     put(2, 9, Side::Black, PieceType::Elephant);
@@ -345,35 +356,37 @@ BoardState initialBoard() {
     return b;
 }
 
+// 判断坐标是否在棋盘内
 bool inBounds(const Pos& p) {
     return (p.x >= 0 && p.x < WIDTH && p.y >= 0 && p.y < HEIGHT);
 }
 
+// 判断是否被将军
 bool isInCheck(const BoardState& b, Side side) {
     auto k = findKing(b, side);
     if (!k) return false;
 
-    // Facing kings is effectively mutual check
+    // 将帅照面视为互相将军
     if (kingsFacing(b)) {
-        // If kings face, both are "in check"
+        // 将帅照面时双方均处于将军
         return true;
     }
 
     Side enemy = other(side);
-    // Iterate all enemy pieces and see if they attack our king
+    // 遍历敌方棋子，判断是否攻击己方将
     for (int y = 0; y < HEIGHT; ++y) {
         for (int x = 0; x < WIDTH; ++x) {
             const auto& cell = b.cells[y][x];
             if (!cell || cell->side != enemy) continue;
             Pos from{x, y};
-            // For rook/cannon we need line checks; attacksSquare covers that.
+            // 车/炮需要直线检查，攻击判定已处理
             if (attacksSquare(b, from, *cell, *k)) {
-                // Special case: cannon only attacks if king is on a piece (capture)
-                // In check detection, cannon attacks the king as capture, so screen count==1 is enough.
-                // For rook-like it's OK.
-                // But for cannon, if there is exactly one piece between, it's check regardless of target occupancy.
-                // attacksSquare already checks screen==1.
-                // Great.
+                // 特殊情况：炮的攻击依赖“隔子”规则
+                // 将军判定中，炮按吃子规则判定，隔一子即可
+                // 对车来说同理
+                // 对炮而言，只要隔一子就可将军（不需目标占位）
+                // 攻击判断已校验隔子数==1
+                // 正常
                 return true;
             }
         }
@@ -382,6 +395,7 @@ bool isInCheck(const BoardState& b, Side side) {
     return false;
 }
 
+// 生成合法走法
 std::vector<Move> legalMovesFrom(const BoardState& b, const Pos& from, Side side) {
     std::vector<Move> out;
     auto pseudo = pseudoMovesFrom(b, from, side);
@@ -399,6 +413,7 @@ std::vector<Move> legalMovesFrom(const BoardState& b, const Pos& from, Side side
     return out;
 }
 
+// 获取全部合法走法
 std::vector<Move> allLegalMoves(const BoardState& b, Side side) {
     std::vector<Move> out;
     for (int y = 0; y < HEIGHT; ++y) {
@@ -413,6 +428,7 @@ std::vector<Move> allLegalMoves(const BoardState& b, Side side) {
     return out;
 }
 
+// 应用走法并返回被吃棋子
 std::optional<Piece> applyMove(BoardState& b, const Move& m) {
     std::optional<Piece> cap = b.at(m.to);
     b.at(m.to) = b.at(m.from);
@@ -420,4 +436,4 @@ std::optional<Piece> applyMove(BoardState& b, const Move& m) {
     return cap;
 }
 
-} // namespace xiangqi
+} // 象棋命名空间

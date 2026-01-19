@@ -14,24 +14,28 @@
 #include <string>
 
 
+// 输入状态：记录鼠标拖拽与位置
 struct InputState {
     bool rmbDown = false;
     double lastX = 0.0;
     double lastY = 0.0;
 };
 
+// 结算提示框布局
 struct PromptLayout {
     UiRect panel;
     UiRect restart;
     UiRect exit;
 };
 
+// 应用模式状态机
 enum class AppMode {
     Menu,
     Loading,
     Playing,
 };
 
+// 应用运行时上下文
 struct App {
     GLFWwindow* window = nullptr;
     int w = 1280;
@@ -46,6 +50,7 @@ struct App {
     InputState input;
 };
 
+// 根据模式与对局状态更新窗口标题（避免频繁设置）
 static void updateWindowTitle(GLFWwindow* window, const XiangqiGame& game, AppMode mode) {
     static std::string last;
     std::string title;
@@ -62,6 +67,7 @@ static void updateWindowTitle(GLFWwindow* window, const XiangqiGame& game, AppMo
     }
 }
 
+// 以中心点生成按钮矩形
 static UiRect makeButton(float cx, float cy, float w, float h) {
     UiRect r;
     r.x = cx - w * 0.5f;
@@ -71,6 +77,7 @@ static UiRect makeButton(float cx, float cy, float w, float h) {
     return r;
 }
 
+// 生成主菜单按钮布局
 static MenuLayout makeMenuLayout(int w, int h) {
     MenuLayout layout;
     float bw = 260.0f;
@@ -82,6 +89,7 @@ static MenuLayout makeMenuLayout(int w, int h) {
     return layout;
 }
 
+// 生成结算对话框布局
 static PromptLayout makePromptLayout(int w, int h) {
     PromptLayout layout;
     float panelW = 460.0f;
@@ -95,10 +103,12 @@ static PromptLayout makePromptLayout(int w, int h) {
     return layout;
 }
 
+// 点是否落在矩形内（点击检测）
 static bool pointInRect(float x, float y, const UiRect& r) {
     return x >= r.x && x <= (r.x + r.w) && y >= r.y && y <= (r.y + r.h);
 }
 
+// 将屏幕点投影到棋盘平面，换算格点
 static bool pickBoardPos(const OrbitCamera& cam, double mouseX, double mouseY, int w, int h, Pos& outPos) {
     Ray r = cam.screenRay(mouseX, mouseY, w, h);
 
@@ -123,14 +133,17 @@ static bool pickBoardPos(const OrbitCamera& cam, double mouseX, double mouseY, i
     return true;
 }
 
+// 将数值限制在区间内
 static float clampf(float v, float lo, float hi) {
     return std::max(lo, std::min(hi, v));
 }
 
+// 记录窗口库错误信息
 static void glfwErrorCallback(int error, const char* description) {
     util::logError(std::string("GLFW error ") + std::to_string(error) + ": " + (description ? description : ""));
 }
 
+// 窗口大小变化后更新渲染器参数
 static void framebufferSizeCallback(GLFWwindow* window, int w, int h) {
     if (w <= 0 || h <= 0) return;
     auto* app = (App*)glfwGetWindowUserPointer(window);
@@ -140,6 +153,7 @@ static void framebufferSizeCallback(GLFWwindow* window, int w, int h) {
     app->renderer.resize(w, h);
 }
 
+// 右键拖拽时旋转相机
 static void cursorPosCallback(GLFWwindow* window, double x, double y) {
     auto* app = (App*)glfwGetWindowUserPointer(window);
     if (!app) return;
@@ -158,6 +172,7 @@ static void cursorPosCallback(GLFWwindow* window, double x, double y) {
     }
 }
 
+// 鼠标按钮交互：菜单与棋盘点击
 static void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
     (void)mods;
     auto* app = (App*)glfwGetWindowUserPointer(window);
@@ -222,6 +237,7 @@ static void mouseButtonCallback(GLFWwindow* window, int button, int action, int 
     }
 }
 
+// 滚轮缩放相机距离
 static void scrollCallback(GLFWwindow* window, double xoffset, double yoffset) {
     (void)xoffset;
     auto* app = (App*)glfwGetWindowUserPointer(window);
@@ -232,6 +248,7 @@ static void scrollCallback(GLFWwindow* window, double xoffset, double yoffset) {
     app->cam.distance = clampf(app->cam.distance, 6.0f, 30.0f);
 }
 
+// 键盘快捷键处理
 static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
     (void)scancode;
     (void)mods;
@@ -267,6 +284,7 @@ static void keyCallback(GLFWwindow* window, int key, int scancode, int action, i
     }
 }
 
+// 程序入口：初始化窗口与主循环
 int main() {
     glfwSetErrorCallback(glfwErrorCallback);
 
@@ -319,7 +337,7 @@ int main() {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    // Initial size (some platforms won't call framebuffer callback immediately)
+    // 初始尺寸（部分平台不会立即触发帧缓冲回调）
     int fbw = 0, fbh = 0;
     glfwGetFramebufferSize(app.window, &fbw, &fbh);
     app.w = fbw > 0 ? fbw : app.w;
@@ -333,7 +351,8 @@ int main() {
     }
     app.renderer.beginPreload();
 
-    double lastTime = glfwGetTime();
+    // 主循环：更新逻辑并按模式渲染
+double lastTime = glfwGetTime();
     while (!glfwWindowShouldClose(app.window)) {
         double now = glfwGetTime();
         float dt = (float)(now - lastTime);

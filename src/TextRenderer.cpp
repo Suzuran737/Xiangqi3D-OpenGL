@@ -7,6 +7,7 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
+// 释放字形纹理与渲染缓冲
 TextRenderer::~TextRenderer() {
     for (auto& [cp, g] : m_glyphs) {
         if (g.texture) glDeleteTextures(1, &g.texture);
@@ -27,6 +28,7 @@ TextRenderer::~TextRenderer() {
     }
 }
 
+// 初始化文字渲染器并创建基础缓冲
 bool TextRenderer::init(const std::string& fontPath, int viewportW, int viewportH) {
     m_w = viewportW;
     m_h = viewportH;
@@ -38,6 +40,7 @@ bool TextRenderer::init(const std::string& fontPath, int viewportW, int viewport
         return false;
     }
 
+    // 初始化字体库并加载字体文件
     FT_Library ft;
     if (FT_Init_FreeType(&ft)) {
         util::logWarn("Failed to init FreeType");
@@ -56,6 +59,7 @@ bool TextRenderer::init(const std::string& fontPath, int viewportW, int viewport
     m_ftLib = (void*)ft;
     m_ftFace = (void*)face;
 
+    // 配置文字绘制用的顶点数据结构
     glGenVertexArrays(1, &m_vao);
     glGenBuffers(1, &m_vbo);
     glBindVertexArray(m_vao);
@@ -68,7 +72,7 @@ bool TextRenderer::init(const std::string& fontPath, int viewportW, int viewport
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
-    // Preload common ASCII glyphs used in UI text.
+    // 预加载界面常用字符，减少首次绘制开销
     preload("0123456789()ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz:.- ");
 
     util::logInfo("TextRenderer ready");
@@ -80,6 +84,7 @@ void TextRenderer::resize(int viewportW, int viewportH) {
     m_h = viewportH;
 }
 
+// 加载单个字形并生成纹理
 bool TextRenderer::loadGlyph(char32_t cp) {
     if (!m_ftFace) return false;
     FT_Face face = (FT_Face)m_ftFace;
@@ -121,8 +126,10 @@ bool TextRenderer::loadGlyph(char32_t cp) {
     return true;
 }
 
+// 预加载字符串所需字形
 void TextRenderer::preload(const std::string& utf8) {
     auto cps = util::utf8ToCodepoints(utf8);
+    // 遍历字符并预加载字形
     for (auto cp : cps) {
         if (m_glyphs.find(cp) == m_glyphs.end()) {
             loadGlyph(cp);
@@ -130,6 +137,7 @@ void TextRenderer::preload(const std::string& utf8) {
     }
 }
 
+// 计算文字显示尺寸
 TextMetrics TextRenderer::measureText(const std::string& utf8, float scale) {
     TextMetrics m;
     if (!m_ftFace) return m;
@@ -160,15 +168,18 @@ TextMetrics TextRenderer::measureText(const std::string& utf8, float scale) {
     return m;
 }
 
+// 逐字绘制文字到屏幕
 void TextRenderer::renderText(const std::string& utf8, float x, float y, float scale, const glm::vec3& color) {
     if (!m_ftFace) return;
 
     preload(utf8);
 
+    // 开启混合以支持透明文字
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     m_shader.use();
+    // 使用正交投影按像素绘制
     glm::mat4 proj = glm::ortho(0.0f, (float)m_w, 0.0f, (float)m_h);
     m_shader.setMat4("projection", proj);
     m_shader.setVec3("textColor", color);
@@ -180,6 +191,7 @@ void TextRenderer::renderText(const std::string& utf8, float x, float y, float s
     float xCursor = x;
     auto cps = util::utf8ToCodepoints(utf8);
 
+    // 逐个字符生成四边形并绘制
     for (auto cp : cps) {
         auto it = m_glyphs.find(cp);
         if (it == m_glyphs.end()) continue;
@@ -191,6 +203,7 @@ void TextRenderer::renderText(const std::string& utf8, float x, float y, float s
         float w = (float)ch.size.x * scale;
         float h = (float)ch.size.y * scale;
 
+        // 当前字符的屏幕四边形顶点
         float vertices[6][4] = {
             {xpos,     ypos + h,   0.0f, 0.0f},
             {xpos,     ypos,       0.0f, 1.0f},
@@ -208,6 +221,7 @@ void TextRenderer::renderText(const std::string& utf8, float x, float y, float s
 
         glDrawArrays(GL_TRIANGLES, 0, 6);
 
+        // 更新游标位置
         xCursor += (ch.advance / 64.0f) * scale;
     }
 

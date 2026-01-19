@@ -6,34 +6,37 @@
 #include <optional>
 #include <vector>
 
+// 走法
 struct Move {
     Pos from;
     Pos to;
 };
 
+// 棋盘状态
 struct BoardState {
-    // board[y][x]
+    // cells[y][x]
     std::array<std::array<std::optional<Piece>, 9>, 10> cells{};
 
     std::optional<Piece>& at(const Pos& p) { return cells[p.y][p.x]; }
     const std::optional<Piece>& at(const Pos& p) const { return cells[p.y][p.x]; }
 };
 
+// 象棋规则相关函数
 namespace xiangqi {
 
 BoardState initialBoard();
 
 bool inBounds(const Pos& p);
 
-// Returns all legal moves for `side` from a given position.
+// 从指定位置生成该方合法走法
 std::vector<Move> legalMovesFrom(const BoardState& b, const Pos& from, Side side);
 
-// Returns all legal moves for `side` across the whole board.
+// 获取该方所有合法走法
 std::vector<Move> allLegalMoves(const BoardState& b, Side side);
 
 bool isInCheck(const BoardState& b, Side side);
 
-// Apply a move (assumes move is legal). Returns captured piece if any.
+// 应用走法，返回被吃的棋子（若有）
 std::optional<Piece> applyMove(BoardState& b, const Move& m);
 
 } // namespace xiangqi

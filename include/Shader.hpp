@@ -2,9 +2,9 @@
 
 #include <glad/gl.h>
 #include <glm/glm.hpp>
-
 #include <string>
 
+// 简单的着色器封装
 class Shader {
 public:
     Shader() = default;

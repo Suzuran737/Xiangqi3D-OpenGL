@@ -1,4 +1,5 @@
 #version 330 core
+// 线段顶点着色器（网格线）
 
 layout(location = 0) in vec3 aPos;
 

@@ -1,5 +1,6 @@
 #include "Mesh.hpp"
 
+// 释放显卡缓冲资源
 Mesh::~Mesh() {
     if (m_ebo) glDeleteBuffers(1, &m_ebo);
     if (m_vbo) glDeleteBuffers(1, &m_vbo);
@@ -8,6 +9,7 @@ Mesh::~Mesh() {
     m_elemCount = 0;
 }
 
+// 移动构造：转移缓冲所有权
 Mesh::Mesh(Mesh&& other) noexcept {
     m_vao = other.m_vao;
     m_vbo = other.m_vbo;
@@ -18,6 +20,7 @@ Mesh::Mesh(Mesh&& other) noexcept {
     other.m_elemCount = 0;
 }
 
+// 移动赋值：先释放再接管
 Mesh& Mesh::operator=(Mesh&& other) noexcept {
     if (this != &other) {
         this->~Mesh();
@@ -32,6 +35,7 @@ Mesh& Mesh::operator=(Mesh&& other) noexcept {
     return *this;
 }
 
+// 从索引三角形创建网格（带索引缓冲）
 Mesh Mesh::fromTriangles(const std::vector<VertexPN>& verts, const std::vector<unsigned int>& indices) {
     Mesh m;
     m.m_indexed = true;
@@ -61,6 +65,7 @@ Mesh Mesh::fromTriangles(const std::vector<VertexPN>& verts, const std::vector<u
     return m;
 }
 
+// 非索引三角形网格（无索引缓冲）
 Mesh Mesh::fromTrianglesNonIndexed(const std::vector<VertexPN>& verts) {
     Mesh m;
     m.m_indexed = false;
@@ -79,13 +84,14 @@ Mesh Mesh::fromTrianglesNonIndexed(const std::vector<VertexPN>& verts) {
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(VertexPN), (void*)offsetof(VertexPN, normal));
 
-    glEnableVertexAttribArray(2); // uv
+    glEnableVertexAttribArray(2); // 纹理坐标
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(VertexPN), (void*)offsetof(VertexPN, uv));
 
     glBindVertexArray(0);
     return m;
 }
 
+// 绘制网格
 void Mesh::draw() const {
     glBindVertexArray(m_vao);
     if (m_indexed) {

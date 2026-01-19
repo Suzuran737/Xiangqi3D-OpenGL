@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 
+// 2D 纹理封装
 class Texture2D {
 public:
     Texture2D() = default;
@@ -17,13 +18,13 @@ public:
     bool valid() const { return m_id != 0; }
     GLuint id() const { return m_id; }
 
-    // Load from file path (png/jpg/...)
+    // 从文件路径加载（png/jpg/...）
     static Texture2D fromFile(const std::string& path, bool generateMipmaps = true);
 
-    // Load from memory blob (compressed image bytes, e.g. embedded PNG)
+    // 从内存数据加载（压缩图片字节，如嵌入式 PNG）
     static Texture2D fromMemory(const unsigned char* data, int sizeBytes, bool generateMipmaps = true);
 
-    // Load from raw RGBA/RGB pixels
+    // 从原始 RGBA/RGB 像素加载
     static Texture2D fromPixels(const unsigned char* pixels, int w, int h, int channels, bool generateMipmaps = true);
 
 private:

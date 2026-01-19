@@ -9,10 +9,12 @@
 #include <cmath>
 #include <vector>
 
+// 根据阵营返回默认棋子颜色
 static glm::vec3 sideColor(Side s) {
     return (s == Side::Red) ? glm::vec3(0.78f, 0.18f, 0.18f) : glm::vec3(0.12f, 0.12f, 0.12f);
 }
 
+// 应用矩阵变换到包围盒
 static AABB transformAABB(const AABB& a, const glm::mat4& M) {
     glm::vec3 corners[8] = {
         {a.min.x, a.min.y, a.min.z},
@@ -36,6 +38,7 @@ static AABB transformAABB(const AABB& a, const glm::mat4& M) {
     return out;
 }
 
+// 构建界面用单位四边形
 static Mesh makeUiQuad() {
     std::vector<VertexPN> v;
     v.reserve(6);
@@ -57,14 +60,17 @@ static Mesh makeUiQuad() {
     return Mesh::fromTrianglesNonIndexed(v);
 }
 
+// 将正弦映射到 0..1
 static float sine01(float t) {
     return 0.5f + 0.5f * std::sin(t);
 }
 
+// 平滑插值曲线
 static float easeInOut(float t) {
     return t * t * (3.0f - 2.0f * t);
 }
 
+// 用于阴影的光源空间矩阵
 static glm::mat4 makeLightSpaceMatrix(const glm::vec3& lightDir) {
     glm::vec3 center(0.0f, 0.0f, 0.0f);
     glm::vec3 lightPos = center - lightDir * 16.0f;
@@ -73,6 +79,7 @@ static glm::mat4 makeLightSpaceMatrix(const glm::vec3& lightDir) {
     return lightProj * lightView;
 }
 
+// 初始化渲染资源（着色器/纹理/阴影）
 bool Renderer::init(int viewportW, int viewportH) {
     m_w = viewportW;
     m_h = viewportH;
@@ -175,6 +182,7 @@ bool Renderer::init(int viewportW, int viewportH) {
     return true;
 }
 
+// 视口大小变化时同步更新
 void Renderer::resize(int viewportW, int viewportH) {
     m_w = viewportW;
     m_h = viewportH;
@@ -182,12 +190,14 @@ void Renderer::resize(int viewportW, int viewportH) {
     glViewport(0, 0, viewportW, viewportH);
 }
 
+// 棋盘格点转为世界坐标
 glm::vec3 Renderer::boardToWorld(const Pos& p) const {
     float x = (p.x - 4) * cfg::CELL + cfg::BOARD_GRID_OFFSET_X;
     float z = (p.y - 4.5f) * cfg::CELL + cfg::BOARD_GRID_OFFSET_Z;
     return glm::vec3(x, cfg::BOARD_PLANE_Y + cfg::PIECE_Y + cfg::PIECE_Y_OFFSET, z);
 }
 
+// 寻找棋盘模型路径
 std::string Renderer::findBoardModelPath() const {
     if (util::fileExists(cfg::BOARD_MODEL_GLB))  return cfg::BOARD_MODEL_GLB;
     if (util::fileExists(cfg::BOARD_MODEL_GLTF)) return cfg::BOARD_MODEL_GLTF;
@@ -195,6 +205,7 @@ std::string Renderer::findBoardModelPath() const {
     return {};
 }
 
+// 寻找棋子模型路径
 std::string Renderer::findPieceModelPath(const std::string& key) const {
     const std::string base = cfg::PIECES_DIR + "/" + key;
     const std::string glb  = base + ".glb";
@@ -206,6 +217,7 @@ std::string Renderer::findPieceModelPath(const std::string& key) const {
     return {};
 }
 
+// 获取棋子模型（带缓存）
 const Model* Renderer::getPieceModelOrNull(const std::string& key) {
     auto it = m_pieceModels.find(key);
     if (it != m_pieceModels.end()) {
@@ -224,6 +236,7 @@ const Model* Renderer::getPieceModelOrNull(const std::string& key) {
     return ok ? &m_pieceModels.at(key) : nullptr;
 }
 
+// 确保棋盘线网的 VAO/VBO 初始化
 void Renderer::ensureLineGrid() {
     if (m_lineVAO) return;
 
@@ -262,6 +275,7 @@ void Renderer::ensureLineGrid() {
     glBindVertexArray(0);
 }
 
+// 开始预加载模型资源
 void Renderer::beginPreload() {
     m_preloadFailed = false;
     m_boardLoaded = false;
@@ -287,6 +301,7 @@ void Renderer::beginPreload() {
     }
 }
 
+// 分步预加载，防止卡顿
 bool Renderer::preloadStep(int maxItems) {
     int loaded = 0;
     while (loaded < maxItems) {
@@ -319,10 +334,12 @@ bool Renderer::preloadStep(int maxItems) {
     return isPreloadReady();
 }
 
+// 预加载是否完成
 bool Renderer::isPreloadReady() const {
     return !m_preloadFailed && m_boardLoaded && m_pendingIndex >= m_pendingPieces.size();
 }
 
+// 计算棋盘模型的自适应变换
 void Renderer::computeBoardModelTransform() {
     const AABB a0 = m_boardModel.aabb();
     glm::vec3 size0 = a0.max - a0.min;
@@ -361,6 +378,7 @@ void Renderer::computeBoardModelTransform() {
     util::logInfo("Board model auto-fit applied (rotation+scale+top-align).");
 }
 
+// 主渲染入口
 void Renderer::draw(const OrbitCamera& cam, const XiangqiGame& game) {
     if (!m_boardLoaded) {
         glViewport(0, 0, m_w, m_h);
@@ -748,7 +766,7 @@ void Renderer::draw(const OrbitCamera& cam, const XiangqiGame& game) {
         }
     }
 
-    // UI: show current turn and check status in the top-left.
+    // 界面：在左上角显示当前回合与将军状态。
     glDisable(GL_DEPTH_TEST);
     const std::string status = game.statusTextCN();
     if (!status.empty()) {
@@ -959,6 +977,7 @@ void Renderer::draw(const OrbitCamera& cam, const XiangqiGame& game) {
     }
 }
 
+// 绘制主菜单
 void Renderer::drawMenu(const MenuLayout& layout, bool hoverStart, bool hoverExit, bool startEnabled) {
     glViewport(0, 0, m_w, m_h);
     glDisable(GL_DEPTH_TEST);
@@ -1023,13 +1042,13 @@ void Renderer::drawMenu(const MenuLayout& layout, bool hoverStart, bool hoverExi
 
         drawRect(r, base, 1.0f);
 
-        // Subtle interior gradient for depth.
+        // 轻微的内部渐变，增强厚度感。
         UiRect topHalf{r.x, r.y + r.h * 0.5f, r.w, r.h * 0.5f};
         UiRect botHalf{r.x, r.y, r.w, r.h * 0.5f};
         drawRect(topHalf, light, 0.18f);
         drawRect(botHalf, dark, 0.22f);
 
-        // Simple wood grain: thin, semi-transparent stripes with slight variation.
+        // 简单木纹：细条纹、半透明、略有变化。
         const int stripes = 9;
         float stripeH = std::max(2.0f, r.h * 0.03f);
         float edge = 5.0f;
@@ -1073,6 +1092,7 @@ void Renderer::drawMenu(const MenuLayout& layout, bool hoverStart, bool hoverExi
     m_text.renderText(exitLabel, exitX, exitY, textScale, glm::vec3(0.96f, 0.94f, 0.90f));
 }
 
+// 绘制加载中提示
 void Renderer::drawLoading(const std::string& message) {
     glViewport(0, 0, m_w, m_h);
     glDisable(GL_DEPTH_TEST);

@@ -28,8 +28,8 @@ struct Piece {
 };
 
 struct Pos {
-    int x = 0; // 0..8
-    int y = 0; // 0..9
+    int x = 0; // 0..8 列
+    int y = 0; // 0..9 行
 };
 
 inline bool operator==(const Pos& a, const Pos& b) {
@@ -41,7 +41,7 @@ inline bool operator!=(const Pos& a, const Pos& b) {
 }
 
 inline std::string pieceKey(Piece p) {
-    // Used for model file lookups
+    // 用于模型文件查找
     std::string color = (p.side == Side::Red) ? "black" : "red";
     std::string type;
     switch (p.type) {
