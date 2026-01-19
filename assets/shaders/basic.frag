@@ -12,6 +12,7 @@ uniform float alpha;
 
 uniform bool useTexture;
 uniform sampler2D albedoMap;
+uniform bool useTextureAlpha;
 
 uniform bool useNormalMap;
 uniform sampler2D normalMap;
@@ -87,6 +88,10 @@ void main() {
         albedo = texture(albedoMap, vUV).rgb;
     }
     albedo = toLinear(albedo);
+    float texAlpha = 1.0;
+    if (useTexture && useTextureAlpha) {
+        texAlpha = texture(albedoMap, vUV).a;
+    }
 
     float r = clamp(roughness, 0.04, 1.0);
     float m = clamp(metalness, 0.0, 1.0);
@@ -111,12 +116,12 @@ void main() {
     vec3 kD = (1.0 - kS) * (1.0 - m);
     vec3 diffuse = kD * albedo / PI;
 
-    vec3 Lo = (diffuse + spec) * NdotL * 1.15;
-    vec3 ambient = 0.45 * albedo;
+    vec3 Lo = (diffuse + spec) * NdotL * 1.25;
+    vec3 ambient = 0.5 * albedo;
 
     float shadow = shadowFactor(N);
     vec3 color = ambient + (1.0 - shadow) * Lo;
 
     color = toGamma(color);
-    FragColor = vec4(color, alpha);
+    FragColor = vec4(color, alpha * texAlpha);
 }

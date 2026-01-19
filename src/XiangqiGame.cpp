@@ -24,6 +24,9 @@ void XiangqiGame::reset() {
     m_eventText.clear();
     m_eventTimer = 0.0f;
     m_time = 0.0f;
+    m_helpTimer = 0.0f;
+    m_checkFlashTimer = 0.0f;
+    m_resultTimer = 0.0f;
 }
 
 bool XiangqiGame::inCheck(Side s) const {
@@ -121,6 +124,7 @@ void XiangqiGame::afterMove() {
         // In Xiangqi, "no legal moves" is a loss (whether checked or not).
         Side winner = (m_sideToMove == Side::Red) ? Side::Black : Side::Red;
         m_status = (winner == Side::Red) ? GameStatus::RedWin : GameStatus::BlackWin;
+        m_resultTimer = 1.5f;
 
         if (stmInCheck) {
             setEvent(std::string("Checkmate. ") + sideNameCN(winner) + " wins. (Press R to restart)", -1.0f);
@@ -133,6 +137,7 @@ void XiangqiGame::afterMove() {
     // Ongoing: show a short prompt when side-to-move is in check.
     if (stmInCheck) {
         setEvent(std::string(sideNameCN(other(m_sideToMove))) + " gives check.", 2.0f);
+        m_checkFlashTimer = 1.5f;
     } else {
         setEvent("", 0.0f);
     }
@@ -162,6 +167,18 @@ void XiangqiGame::update(float dt) {
     );
 
     m_time += dt;
+    if (m_helpTimer > 0.0f) {
+        m_helpTimer -= dt;
+        if (m_helpTimer < 0.0f) {
+            m_helpTimer = 0.0f;
+        }
+    }
+    if (m_checkFlashTimer > 0.0f) {
+        m_checkFlashTimer -= dt;
+        if (m_checkFlashTimer < 0.0f) {
+            m_checkFlashTimer = 0.0f;
+        }
+    }
 
     // Fade out transient event prompt.
     if (m_status == GameStatus::Ongoing && m_eventTimer > 0.0f) {
@@ -171,6 +188,18 @@ void XiangqiGame::update(float dt) {
             m_eventText.clear();
         }
     }
+
+    if (m_resultTimer > 0.0f) {
+        m_resultTimer -= dt;
+        if (m_resultTimer < 0.0f) {
+            m_resultTimer = 0.0f;
+        }
+    }
+}
+
+void XiangqiGame::startHelp(float seconds) {
+    if (seconds <= 0.0f) return;
+    m_helpTimer = seconds;
 }
 
 std::string XiangqiGame::statusTextCN() const {

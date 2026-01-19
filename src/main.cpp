@@ -20,8 +20,15 @@ struct InputState {
     double lastY = 0.0;
 };
 
+struct PromptLayout {
+    UiRect panel;
+    UiRect restart;
+    UiRect exit;
+};
+
 enum class AppMode {
     Menu,
+    Loading,
     Playing,
 };
 
@@ -34,6 +41,7 @@ struct App {
     Renderer renderer;
     XiangqiGame game;
     AppMode mode = AppMode::Menu;
+    bool helpShown = false;
 
     InputState input;
 };
@@ -43,6 +51,8 @@ static void updateWindowTitle(GLFWwindow* window, const XiangqiGame& game, AppMo
     std::string title;
     if (mode == AppMode::Menu) {
         title = "Xiangqi3D (OpenGL) - Menu";
+    } else if (mode == AppMode::Loading) {
+        title = "Xiangqi3D (OpenGL) - Loading";
     } else {
         title = std::string("Xiangqi3D (OpenGL) - ") + game.windowTitleCN();
     }
@@ -69,6 +79,19 @@ static MenuLayout makeMenuLayout(int w, int h) {
     float cy = h * 0.5f - 120.0f;
     layout.start = makeButton(cx, cy + 60.0f, bw, bh);
     layout.exit = makeButton(cx, cy - 60.0f, bw, bh);
+    return layout;
+}
+
+static PromptLayout makePromptLayout(int w, int h) {
+    PromptLayout layout;
+    float panelW = 460.0f;
+    float panelH = 220.0f;
+    layout.panel = UiRect{((float)w - panelW) * 0.5f, ((float)h - panelH) * 0.5f, panelW, panelH};
+
+    float bw = 165.0f;
+    float bh = 54.0f;
+    layout.restart = UiRect{layout.panel.x + layout.panel.w * 0.5f - bw - 18.0f, layout.panel.y + 32.0f, bw, bh};
+    layout.exit = UiRect{layout.panel.x + layout.panel.w * 0.5f + 18.0f, layout.panel.y + 32.0f, bw, bh};
     return layout;
 }
 
@@ -162,7 +185,29 @@ static void mouseButtonCallback(GLFWwindow* window, int button, int action, int 
                 if (app->renderer.isPreloadReady()) {
                     app->game.reset();
                     app->mode = AppMode::Playing;
+                    if (!app->helpShown) {
+                        app->game.startHelp(6.0f);
+                        app->helpShown = true;
+                    }
+                } else {
+                    app->mode = AppMode::Loading;
                 }
+            } else if (pointInRect(sx, sy, layout.exit)) {
+                glfwSetWindowShouldClose(window, GLFW_TRUE);
+            }
+            return;
+        }
+
+        if (app->mode == AppMode::Loading) {
+            return;
+        }
+
+        if (app->mode == AppMode::Playing && app->game.resultPromptActive()) {
+            PromptLayout layout = makePromptLayout(app->w, app->h);
+            float sx = (float)mx;
+            float sy = (float)app->h - (float)my;
+            if (pointInRect(sx, sy, layout.restart)) {
+                app->game.reset();
             } else if (pointInRect(sx, sy, layout.exit)) {
                 glfwSetWindowShouldClose(window, GLFW_TRUE);
             }
@@ -199,6 +244,12 @@ static void keyCallback(GLFWwindow* window, int key, int scancode, int action, i
                 if (app->renderer.isPreloadReady()) {
                     app->game.reset();
                     app->mode = AppMode::Playing;
+                    if (!app->helpShown) {
+                        app->game.startHelp(6.0f);
+                        app->helpShown = true;
+                    }
+                } else {
+                    app->mode = AppMode::Loading;
                 }
                 return;
             }
@@ -299,10 +350,11 @@ int main() {
             glfwGetCursorPos(app.window, &mx, &my);
             float sx = (float)mx;
             float sy = (float)app.h - (float)my;
-            bool ready = app.renderer.isPreloadReady();
-            bool hoverStart = ready && pointInRect(sx, sy, layout.start);
+            bool hoverStart = pointInRect(sx, sy, layout.start);
             bool hoverExit = pointInRect(sx, sy, layout.exit);
-            app.renderer.drawMenu(layout, hoverStart, hoverExit, ready);
+            app.renderer.drawMenu(layout, hoverStart, hoverExit, true);
+        } else if (app.mode == AppMode::Loading) {
+            app.renderer.drawLoading(u8"\u6b63\u5728\u52a0\u8f7d\u8d44\u6e90\u002e\u002e\u002e\u002e\u002e\u002e");
         } else {
             app.renderer.draw(app.cam, app.game);
         }
@@ -312,6 +364,13 @@ int main() {
 
         if (!app.renderer.isPreloadReady()) {
             app.renderer.preloadStep(1);
+        } else if (app.mode == AppMode::Loading) {
+            app.game.reset();
+            app.mode = AppMode::Playing;
+            if (!app.helpShown) {
+                app.game.startHelp(6.0f);
+                app.helpShown = true;
+            }
         }
     }
 

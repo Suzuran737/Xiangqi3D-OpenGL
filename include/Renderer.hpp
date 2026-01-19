@@ -33,6 +33,7 @@ public:
 
     void draw(const OrbitCamera& cam, const XiangqiGame& game);
     void drawMenu(const MenuLayout& layout, bool hoverStart, bool hoverExit, bool startEnabled);
+    void drawLoading(const std::string& message);
     void beginPreload();
     bool preloadStep(int maxItems = 1);
     bool isPreloadReady() const;
@@ -47,6 +48,10 @@ private:
 
     TextRenderer m_text;
     Texture2D m_menuBg;
+    Texture2D m_checkOverlay;
+    Texture2D m_redWinOverlay;
+    Texture2D m_blackWinOverlay;
+    Texture2D m_gameBg;
     Texture2D m_boardNormal;
     GLuint m_shadowFBO = 0;
     GLuint m_shadowTex = 0;

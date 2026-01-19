@@ -48,6 +48,12 @@ public:
     const std::vector<MoveVisual>& moves() const { return m_moves; }
 
     float timeSeconds() const { return m_time; }
+    bool helpActive() const { return m_helpTimer > 0.0f; }
+    void startHelp(float seconds);
+    bool checkFlashActive() const { return m_checkFlashTimer > 0.0f; }
+    bool resultOverlayActive() const { return m_resultTimer > 0.0f; }
+    bool resultPromptActive() const { return m_status != GameStatus::Ongoing && m_resultTimer <= 0.0f; }
+    Side winnerSide() const { return (m_status == GameStatus::RedWin) ? Side::Red : Side::Black; }
 
     bool inCheck(Side s) const;
 
@@ -80,6 +86,9 @@ private:
     std::vector<MoveVisual> m_moves;
 
     float m_time = 0.0f;
+    float m_helpTimer = 0.0f;
+    float m_checkFlashTimer = 0.0f;
+    float m_resultTimer = 0.0f;
 
     // last event prompt (check / mate). For ongoing games, this fades out.
     std::string m_eventText;

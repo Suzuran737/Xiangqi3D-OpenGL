@@ -50,6 +50,13 @@ inline const std::string PIECES_DIR = "assets/models/pieces";
 inline const std::string FONT_PATH = "assets/fonts/NotoSansSC-Regular.otf";
 // Menu background image.
 inline const std::string MENU_BG_TEXTURE = "assets/textures/bgc.png";
+// "Check" overlay image (transparent background).
+inline const std::string CHECK_OVERLAY_TEXTURE = "assets/textures/check.png";
+// Win overlays (transparent background).
+inline const std::string RED_WIN_OVERLAY_TEXTURE = "assets/textures/win_red.png";
+inline const std::string BLACK_WIN_OVERLAY_TEXTURE = "assets/textures/win_black.png";
+// Gameplay background (subtle texture).
+inline const std::string GAME_BG_TEXTURE = "assets/textures/game_bg.png";
 // Board normal map (optional).
 inline const std::string BOARD_NORMAL_MAP = "assets/textures/board_normal.png";
 

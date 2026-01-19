@@ -102,6 +102,26 @@ bool Renderer::init(int viewportW, int viewportH) {
     } else {
         util::logWarn(std::string("Menu background not found: ") + cfg::MENU_BG_TEXTURE);
     }
+    if (util::fileExists(cfg::CHECK_OVERLAY_TEXTURE)) {
+        m_checkOverlay = Texture2D::fromFile(cfg::CHECK_OVERLAY_TEXTURE, false);
+    } else {
+        util::logWarn(std::string("Check overlay not found: ") + cfg::CHECK_OVERLAY_TEXTURE);
+    }
+    if (util::fileExists(cfg::RED_WIN_OVERLAY_TEXTURE)) {
+        m_redWinOverlay = Texture2D::fromFile(cfg::RED_WIN_OVERLAY_TEXTURE, false);
+    } else {
+        util::logWarn(std::string("Red win overlay not found: ") + cfg::RED_WIN_OVERLAY_TEXTURE);
+    }
+    if (util::fileExists(cfg::BLACK_WIN_OVERLAY_TEXTURE)) {
+        m_blackWinOverlay = Texture2D::fromFile(cfg::BLACK_WIN_OVERLAY_TEXTURE, false);
+    } else {
+        util::logWarn(std::string("Black win overlay not found: ") + cfg::BLACK_WIN_OVERLAY_TEXTURE);
+    }
+    if (util::fileExists(cfg::GAME_BG_TEXTURE)) {
+        m_gameBg = Texture2D::fromFile(cfg::GAME_BG_TEXTURE, false);
+    } else {
+        util::logWarn(std::string("Game background not found: ") + cfg::GAME_BG_TEXTURE);
+    }
     if (util::fileExists(cfg::BOARD_NORMAL_MAP)) {
         m_boardNormal = Texture2D::fromFile(cfg::BOARD_NORMAL_MAP, true);
     } else {
@@ -356,8 +376,43 @@ void Renderer::draw(const OrbitCamera& cam, const XiangqiGame& game) {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    glClearColor(0.15f, 0.15f, 0.18f, 1.0f);
+    glClearColor(0.12f, 0.12f, 0.14f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    if (m_gameBg.valid()) {
+        glDisable(GL_DEPTH_TEST);
+        glm::mat4 Vbg = glm::mat4(1.0f);
+        glm::mat4 Pbg = glm::ortho(0.0f, (float)m_w, 0.0f, (float)m_h);
+
+        m_basicShader.use();
+        m_basicShader.setMat4("view", Vbg);
+        m_basicShader.setMat4("projection", Pbg);
+        m_basicShader.setVec3("lightDir", glm::vec3(0.0f, 0.0f, -1.0f));
+        m_basicShader.setVec3("viewPos", glm::vec3(0.0f, 0.0f, 1.0f));
+        m_basicShader.setFloat("roughness", 1.0f);
+        m_basicShader.setFloat("metalness", 0.0f);
+        m_basicShader.setInt("useShadow", 0);
+        m_basicShader.setInt("useNormalMap", 0);
+        m_basicShader.setInt("useTextureAlpha", 0);
+        m_basicShader.setInt("albedoMap", 0);
+        m_basicShader.setInt("useTexture", 1);
+        m_basicShader.setVec3("baseColor", glm::vec3(1.0f));
+        m_basicShader.setFloat("alpha", 0.54f);
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, m_gameBg.id());
+
+        glm::mat4 M = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+        M = glm::scale(M, glm::vec3((float)m_w, (float)m_h, 1.0f));
+        m_basicShader.setMat4("model", M);
+        m_uiQuad.draw();
+
+        glBindTexture(GL_TEXTURE_2D, 0);
+        m_basicShader.setInt("useTexture", 0);
+        m_basicShader.setFloat("alpha", 1.0f);
+    }
+
+    glEnable(GL_DEPTH_TEST);
 
     glm::mat4 V = cam.view();
     glm::mat4 P = cam.projection((float)m_w / (float)m_h);
@@ -450,6 +505,7 @@ void Renderer::draw(const OrbitCamera& cam, const XiangqiGame& game) {
     m_basicShader.setFloat("metalness", cfg::BOARD_METALNESS);
     m_basicShader.setInt("useShadow", shadowReady ? 1 : 0);
     m_basicShader.setInt("useNormalMap", m_boardNormal.valid() ? 1 : 0);
+    m_basicShader.setInt("useTextureAlpha", 0);
 
     m_basicShader.setInt("albedoMap", 0);
     if (shadowReady) {
@@ -509,6 +565,7 @@ void Renderer::draw(const OrbitCamera& cam, const XiangqiGame& game) {
     m_basicShader.setInt("useShadow", 0);
     m_basicShader.setInt("useNormalMap", 0);
     m_basicShader.setInt("useTexture", 0);
+    m_basicShader.setInt("useTextureAlpha", 0);
 
     if (game.selected()) {
         glm::vec3 wpos = boardToWorld(*game.selected());
@@ -531,6 +588,7 @@ void Renderer::draw(const OrbitCamera& cam, const XiangqiGame& game) {
 
     m_basicShader.setFloat("roughness", cfg::PIECE_ROUGHNESS);
     m_basicShader.setFloat("metalness", cfg::PIECE_METALNESS);
+    m_basicShader.setInt("useTextureAlpha", 0);
     m_basicShader.setInt("albedoMap", 0);
     for (const auto& mv : moves) {
         const Model* model = getPieceModelOrNull(pieceKey(mv.piece));
@@ -547,6 +605,7 @@ void Renderer::draw(const OrbitCamera& cam, const XiangqiGame& game) {
         m_basicShader.setFloat("metalness", cfg::PIECE_METALNESS);
         m_basicShader.setInt("useShadow", 0);
         m_basicShader.setInt("useNormalMap", 0);
+        m_basicShader.setInt("useTextureAlpha", 0);
         m_basicShader.setFloat("alpha", 1.0f);
 
         if (model->hasAlbedo()) {
@@ -594,6 +653,7 @@ void Renderer::draw(const OrbitCamera& cam, const XiangqiGame& game) {
             m_basicShader.setFloat("metalness", cfg::PIECE_METALNESS);
             m_basicShader.setInt("useShadow", 0);
             m_basicShader.setInt("useNormalMap", 0);
+            m_basicShader.setInt("useTextureAlpha", 0);
             m_basicShader.setFloat("alpha", 1.0f);
 
             const Model* model = getPieceModelOrNull(pieceKey(p));
@@ -609,6 +669,7 @@ void Renderer::draw(const OrbitCamera& cam, const XiangqiGame& game) {
                 m_basicShader.setFloat("alpha", 0.35f);
                 m_basicShader.setFloat("roughness", 1.0f);
                 m_basicShader.setFloat("metalness", 0.0f);
+                m_basicShader.setInt("useTextureAlpha", 0);
 
                 glm::mat4 glowM = glm::translate(glm::mat4(1.0f), wpos);
                 glowM = glm::scale(glowM, glm::vec3(cfg::PIECE_MODEL_SCALE * scale * 1.08f));
@@ -659,6 +720,7 @@ void Renderer::draw(const OrbitCamera& cam, const XiangqiGame& game) {
         m_basicShader.setFloat("metalness", cfg::PIECE_METALNESS);
         m_basicShader.setInt("useShadow", 0);
         m_basicShader.setInt("useNormalMap", 0);
+        m_basicShader.setInt("useTextureAlpha", 0);
         m_basicShader.setFloat("alpha", alpha);
 
         const Model* model = getPieceModelOrNull(pieceKey(c.piece));
@@ -696,6 +758,205 @@ void Renderer::draw(const OrbitCamera& cam, const XiangqiGame& game) {
         m_text.renderText(status, x + 2.0f, y - 2.0f, scale, glm::vec3(0.05f, 0.05f, 0.05f));
         m_text.renderText(status, x, y, scale, glm::vec3(0.95f, 0.95f, 0.95f));
     }
+
+    {
+        const char* line1 = u8"\u6309\u4f4f\u53f3\u952e\u62d6\u62fd\u65cb\u8f6c";
+        const char* line2 = u8"\u6eda\u8f6e\u7f29\u653e";
+        const char* line3 = u8"ESC\u9000\u51fa / R\u91cd\u5f00";
+        float margin = 20.0f;
+        float y = (float)m_h - 32.0f;
+        float lineGap = 30.0f;
+        float scale = 0.52f;
+        glm::vec3 shadow(0.05f, 0.05f, 0.05f);
+        glm::vec3 color(0.85f, 0.85f, 0.85f);
+
+        TextMetrics m1 = m_text.measureText(line1, scale);
+        TextMetrics m2 = m_text.measureText(line2, scale);
+        TextMetrics m3 = m_text.measureText(line3, scale);
+        float x1 = (float)m_w - margin - m1.width;
+        float x2 = (float)m_w - margin - m2.width;
+        float x3 = (float)m_w - margin - m3.width;
+
+        m_text.renderText(line1, x1 + 2.0f, y - 2.0f, scale, shadow);
+        m_text.renderText(line1, x1, y, scale, color);
+        m_text.renderText(line2, x2 + 2.0f, y - lineGap - 2.0f, scale, shadow);
+        m_text.renderText(line2, x2, y - lineGap, scale, color);
+        m_text.renderText(line3, x3 + 2.0f, y - lineGap * 2.0f - 2.0f, scale, shadow);
+        m_text.renderText(line3, x3, y - lineGap * 2.0f, scale, color);
+    }
+
+    if (game.checkFlashActive() && m_checkOverlay.valid()) {
+        glDisable(GL_DEPTH_TEST);
+        glm::mat4 Vui = glm::mat4(1.0f);
+        glm::mat4 Pui = glm::ortho(0.0f, (float)m_w, 0.0f, (float)m_h);
+
+        m_basicShader.use();
+        m_basicShader.setMat4("view", Vui);
+        m_basicShader.setMat4("projection", Pui);
+        m_basicShader.setVec3("lightDir", glm::vec3(0.0f, 0.0f, -1.0f));
+        m_basicShader.setVec3("viewPos", glm::vec3(0.0f, 0.0f, 1.0f));
+        m_basicShader.setFloat("roughness", 1.0f);
+        m_basicShader.setFloat("metalness", 0.0f);
+        m_basicShader.setInt("useShadow", 0);
+        m_basicShader.setInt("useNormalMap", 0);
+        m_basicShader.setInt("albedoMap", 0);
+        m_basicShader.setInt("useTexture", 1);
+        m_basicShader.setInt("useTextureAlpha", 1);
+        m_basicShader.setVec3("baseColor", glm::vec3(1.0f));
+        m_basicShader.setFloat("alpha", 1.0f);
+
+        float w = (float)m_w * (2.0f / 3.0f);
+        float h = (float)m_h * (2.0f / 3.0f);
+        float x = ((float)m_w - w) * 0.5f;
+        float y = ((float)m_h - h) * 0.5f;
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, m_checkOverlay.id());
+
+        glm::mat4 M = glm::translate(glm::mat4(1.0f), glm::vec3(x, y, 0.0f));
+        M = glm::scale(M, glm::vec3(w, h, 1.0f));
+        m_basicShader.setMat4("model", M);
+        m_uiQuad.draw();
+
+        glBindTexture(GL_TEXTURE_2D, 0);
+        m_basicShader.setInt("useTexture", 0);
+    }
+
+    if (game.resultOverlayActive()) {
+        const Texture2D* overlay = nullptr;
+        if (game.winnerSide() == Side::Red) {
+            overlay = m_redWinOverlay.valid() ? &m_redWinOverlay : nullptr;
+        } else {
+            overlay = m_blackWinOverlay.valid() ? &m_blackWinOverlay : nullptr;
+        }
+
+        if (overlay) {
+            glDisable(GL_DEPTH_TEST);
+            glm::mat4 Vui = glm::mat4(1.0f);
+            glm::mat4 Pui = glm::ortho(0.0f, (float)m_w, 0.0f, (float)m_h);
+
+            m_basicShader.use();
+            m_basicShader.setMat4("view", Vui);
+            m_basicShader.setMat4("projection", Pui);
+            m_basicShader.setVec3("lightDir", glm::vec3(0.0f, 0.0f, -1.0f));
+            m_basicShader.setVec3("viewPos", glm::vec3(0.0f, 0.0f, 1.0f));
+            m_basicShader.setFloat("roughness", 1.0f);
+            m_basicShader.setFloat("metalness", 0.0f);
+            m_basicShader.setInt("useShadow", 0);
+            m_basicShader.setInt("useNormalMap", 0);
+            m_basicShader.setInt("albedoMap", 0);
+            m_basicShader.setInt("useTexture", 1);
+            m_basicShader.setInt("useTextureAlpha", 1);
+            m_basicShader.setVec3("baseColor", glm::vec3(1.0f));
+            m_basicShader.setFloat("alpha", 1.0f);
+
+            float w = (float)m_w * 0.6f;
+            float h = w * 0.55f;
+            float x = ((float)m_w - w) * 0.5f;
+            float y = ((float)m_h - h) * 0.5f;
+
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, overlay->id());
+
+            glm::mat4 M = glm::translate(glm::mat4(1.0f), glm::vec3(x, y, 0.0f));
+            M = glm::scale(M, glm::vec3(w, h, 1.0f));
+            m_basicShader.setMat4("model", M);
+            m_uiQuad.draw();
+
+            glBindTexture(GL_TEXTURE_2D, 0);
+            m_basicShader.setInt("useTexture", 0);
+            m_basicShader.setInt("useTextureAlpha", 0);
+        }
+    }
+
+    if (game.resultPromptActive()) {
+        glDisable(GL_DEPTH_TEST);
+        glm::mat4 Vui = glm::mat4(1.0f);
+        glm::mat4 Pui = glm::ortho(0.0f, (float)m_w, 0.0f, (float)m_h);
+
+        m_basicShader.use();
+        m_basicShader.setMat4("view", Vui);
+        m_basicShader.setMat4("projection", Pui);
+        m_basicShader.setVec3("lightDir", glm::vec3(0.0f, 0.0f, -1.0f));
+        m_basicShader.setVec3("viewPos", glm::vec3(0.0f, 0.0f, 1.0f));
+        m_basicShader.setFloat("roughness", 1.0f);
+        m_basicShader.setFloat("metalness", 0.0f);
+        m_basicShader.setInt("useShadow", 0);
+        m_basicShader.setInt("useNormalMap", 0);
+        m_basicShader.setInt("albedoMap", 0);
+        m_basicShader.setInt("useTexture", 0);
+        m_basicShader.setInt("useTextureAlpha", 0);
+
+        auto drawRect = [&](const UiRect& r, const glm::vec3& color, float alpha) {
+            glm::mat4 M = glm::translate(glm::mat4(1.0f), glm::vec3(r.x, r.y, 0.0f));
+            M = glm::scale(M, glm::vec3(r.w, r.h, 1.0f));
+            m_basicShader.setMat4("model", M);
+            m_basicShader.setVec3("baseColor", color);
+            m_basicShader.setFloat("alpha", alpha);
+            m_uiQuad.draw();
+        };
+
+        UiRect dim{0.0f, 0.0f, (float)m_w, (float)m_h};
+        drawRect(dim, glm::vec3(0.0f), 0.50f);
+
+        float panelW = 460.0f;
+        float panelH = 220.0f;
+        UiRect panel{((float)m_w - panelW) * 0.5f, ((float)m_h - panelH) * 0.5f, panelW, panelH};
+        UiRect shadow{panel.x + 6.0f, panel.y - 6.0f, panel.w, panel.h};
+        drawRect(shadow, glm::vec3(0.0f), 0.35f);
+        drawRect(panel, glm::vec3(0.14f, 0.15f, 0.18f), 0.95f);
+
+        float border = 2.0f;
+        UiRect inner{panel.x + border, panel.y + border, panel.w - border * 2.0f, panel.h - border * 2.0f};
+        drawRect(panel, glm::vec3(0.28f, 0.30f, 0.34f), 0.9f);
+        drawRect(inner, glm::vec3(0.16f, 0.17f, 0.20f), 0.95f);
+
+        float bw = 165.0f;
+        float bh = 54.0f;
+        UiRect restart{panel.x + panel.w * 0.5f - bw - 18.0f, panel.y + 32.0f, bw, bh};
+        UiRect exit{panel.x + panel.w * 0.5f + 18.0f, panel.y + 32.0f, bw, bh};
+
+        auto drawButton = [&](const UiRect& r) {
+            glm::vec3 base(0.42f, 0.30f, 0.18f);
+            glm::vec3 light = base + glm::vec3(0.07f, 0.06f, 0.05f);
+            glm::vec3 dark = base - glm::vec3(0.10f, 0.08f, 0.06f);
+            drawRect(r, base, 1.0f);
+            float inset = 5.0f;
+            UiRect top{r.x + inset, r.y + r.h - inset, r.w - inset * 2.0f, inset};
+            UiRect bottom{r.x + inset, r.y, r.w - inset * 2.0f, inset};
+            UiRect left{r.x, r.y + inset, inset, r.h - inset * 2.0f};
+            UiRect right{r.x + r.w - inset, r.y + inset, inset, r.h - inset * 2.0f};
+            drawRect(top, light, 0.9f);
+            drawRect(left, light, 0.6f);
+            drawRect(bottom, dark, 0.85f);
+            drawRect(right, dark, 0.85f);
+        };
+
+        drawButton(restart);
+        drawButton(exit);
+
+        const char* title = u8"\u662f\u5426\u91cd\u65b0\u8fdb\u884c\u6e38\u620f\u003f";
+        const char* restartLabel = u8"\u91cd\u65b0\u5f00\u59cb";
+        const char* exitLabel = u8"\u9000\u51fa";
+        float titleScale = 0.6f;
+        float btnScale = 0.56f;
+
+        TextMetrics tm = m_text.measureText(title, titleScale);
+        float tx = panel.x + (panel.w - tm.width) * 0.5f;
+        float ty = panel.y + panel.h - 62.0f;
+        m_text.renderText(title, tx + 2.0f, ty - 2.0f, titleScale, glm::vec3(0.05f, 0.05f, 0.05f));
+        m_text.renderText(title, tx, ty, titleScale, glm::vec3(0.95f, 0.95f, 0.95f));
+
+        TextMetrics rm = m_text.measureText(restartLabel, btnScale);
+        float rx = restart.x + (restart.w - rm.width) * 0.5f;
+        float ry = restart.y + restart.h * 0.5f + (rm.descent - rm.ascent) * 0.5f;
+        m_text.renderText(restartLabel, rx, ry, btnScale, glm::vec3(0.95f, 0.95f, 0.95f));
+
+        TextMetrics em = m_text.measureText(exitLabel, btnScale);
+        float ex = exit.x + (exit.w - em.width) * 0.5f;
+        float ey = exit.y + exit.h * 0.5f + (em.descent - em.ascent) * 0.5f;
+        m_text.renderText(exitLabel, ex, ey, btnScale, glm::vec3(0.95f, 0.95f, 0.95f));
+    }
 }
 
 void Renderer::drawMenu(const MenuLayout& layout, bool hoverStart, bool hoverExit, bool startEnabled) {
@@ -722,6 +983,7 @@ void Renderer::drawMenu(const MenuLayout& layout, bool hoverStart, bool hoverExi
     m_basicShader.setFloat("metalness", 0.0f);
     m_basicShader.setInt("useShadow", 0);
     m_basicShader.setInt("useNormalMap", 0);
+    m_basicShader.setInt("useTextureAlpha", 0);
     m_basicShader.setInt("albedoMap", 0);
 
     auto drawRect = [&](const UiRect& r, const glm::vec3& color, float alpha) {
@@ -809,4 +1071,22 @@ void Renderer::drawMenu(const MenuLayout& layout, bool hoverStart, bool hoverExi
     float exitX = layout.exit.x + (layout.exit.w - exitMetrics.width) * 0.5f;
     float exitY = layout.exit.y + layout.exit.h * 0.5f + (exitMetrics.descent - exitMetrics.ascent) * 0.5f;
     m_text.renderText(exitLabel, exitX, exitY, textScale, glm::vec3(0.96f, 0.94f, 0.90f));
+}
+
+void Renderer::drawLoading(const std::string& message) {
+    glViewport(0, 0, m_w, m_h);
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_CULL_FACE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    glClearColor(0.08f, 0.08f, 0.10f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    float scale = 0.75f;
+    TextMetrics tm = m_text.measureText(message, scale);
+    float x = ((float)m_w - tm.width) * 0.5f;
+    float y = ((float)m_h * 0.5f) + (tm.descent - tm.ascent) * 0.5f;
+    m_text.renderText(message, x + 2.0f, y - 2.0f, scale, glm::vec3(0.05f, 0.05f, 0.05f));
+    m_text.renderText(message, x, y, scale, glm::vec3(0.95f, 0.95f, 0.95f));
 }
